@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=9">
+<meta charset="UTF-8">
+<title>AI004</title>
+<style type="text/css">
+	h1, h2, h3 {
+		margin:0px;
+	}
+	body, textarea {
+		font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+		font-size: 14px;
+		line-height: 1.2;
+	}
+</style>
+<script type="text/javascript" src="./ai.js" charset="UTF-8"></script>
+<script type="text/javascript">
+var mainAI = null;
+var inputBoxObj = null;
+onload = function() {
+	mainAI = new AI();
+	inputBoxObj = document.getElementById("inputBox");
+	inputBoxObj.onkeydown = sendToAI;
+	mainAI.setMessageBoxDOMObject(document.getElementById("messageBox"));
+	mainAI.setDebugBoxDOMObject(document.getElementById("debugBox"));
+}
+
+function sendToAI(e){
+	//Enterで送信
+	//Shift+Enterで改行
+	if (e.keyCode == 13){ // Enterが押された
+		if(!e.shiftKey && inputBoxObj.value.replace(/\s/g, "").length > 0){
+			e.preventDefault();
+			mainAI.sendToAI(inputBoxObj.value);
+			inputBoxObj.value = '';
+		}
+	}
+}
+
+</script>
+</head>
+<body>
+<h1>AI004</h1>
+<div style="float:left;">
+	<h2>Message</h2>
+	<textarea id="messageBox" cols="64" rows="32"></textarea>
+</div>
+<div style="float:left;">
+	<h2>Debug</h2>
+	<textarea id="debugBox" cols="64" rows="32"></textarea>
+</div>
+<div style="clear:both;">
+	<h2>Input</h2>
+	<form onsubmit="return false;">
+		<textarea id="inputBox" cols="128" rows="8"></textarea>
+	</form>
+</div>
+</body>
+</html>
