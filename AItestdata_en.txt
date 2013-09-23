@@ -1,0 +1,17 @@
+Artificial intelligence, From Wikipedia, the free encyclopedia.
+Last modified on 14 February 2013 at 15:08.
+
+Artificial Intelligence (AI) is the intelligence of machines and robots and the branch of computer science that aims to create it.
+AI textbooks define the field as "the study and design of intelligent agents" where an intelligent agent is a system that perceives its environment and takes actions that maximize its chances of success.
+John McCarthy, who coined the term in 1955, defines it as "the science and engineering of making intelligent machines."
+AI research is highly technical and specialised, deeply divided into subfields that often fail to communicate with each other. 
+Some of the division is due to social and cultural factors: subfields have grown up around particular institutions and the work of individual researchers. 
+AI research is also divided by several technical issues.
+ There are subfields which are focused on the solution of specific problems, on one of several possible approaches, on the use of widely differing tools and towards the accomplishment of particular applications.
+The central problems of AI include such traits as reasoning, knowledge, planning, learning, communication, perception and the ability to move and manipulate objects.
+General intelligence (or "strong AI") is still among the field's long term goals.
+Currently popular approaches include statistical methods, computational intelligence and traditional symbolic AI.
+There are an enormous number of tools used in AI, including versions of search and mathematical optimization, logic, methods based on probability and economics, and many others.
+The field was founded on the claim that a central property of humans, intelligence (the sapience of Homo sapiens) can be so precisely described that it can be emulated by a machine.
+This raises philosophical issues about the nature of the mind and the ethics of creating artificial beings, issues which have been addressed by myth, fiction and philosophy since antiquity.
+Artificial intelligence has been the subject of optimism, but has also suffered setbacks Today, it has become an essential part of the technology industry, providing the heavy lifting for many of the most difficult problems in computer science.

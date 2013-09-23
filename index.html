@@ -24,6 +24,11 @@ onload = function() {
 	inputBoxObj.onkeydown = sendToAI;
 	mainAI.setMessageBoxDOMObject(document.getElementById("messageBox"));
 	mainAI.setDebugBoxDOMObject(document.getElementById("debugBox"));
+	mainAI.downloadBox = document.getElementById("downloadBox");
+	// Setup the dnd listeners.
+	var dropZone = document.getElementById('inputBox');
+	dropZone.addEventListener('dragover', handleDragOver, false);
+	dropZone.addEventListener('drop', handleFileSelect, false);
 }
 
 function sendToAI(e){
@@ -38,6 +43,33 @@ function sendToAI(e){
 	}
 }
 
+// http://www.html5rocks.com/ja/tutorials/file/dndfiles/
+function handleFileSelect(evt){
+	evt.stopPropagation();
+	evt.preventDefault();
+
+	var files = evt.dataTransfer.files; // FileList object.
+	
+	// files is a FileList of File objects. List some properties.
+	var output = [];
+	for(var i = 0, f; f = files[i]; i++){
+		var r = new FileReader();
+		r.onload = (function(file){
+			return function(e){
+				mainAI.sendTextFromFileToAI(r.result, file.name, file.lastModifiedDate);
+			}
+		})(f);
+		r.readAsText(f);
+	}
+}
+
+function handleDragOver(evt){
+	evt.stopPropagation();
+	evt.preventDefault();
+	evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+}
+
+
 </script>
 </head>
 <body>
@@ -48,7 +80,9 @@ function sendToAI(e){
 </div>
 <div style="float:left;">
 	<h2>Debug</h2>
-	<textarea id="debugBox" cols="64" rows="32"></textarea>
+	<textarea id="debugBox" cols="64" rows="24"></textarea>
+	<h2>Downloads</h2>
+	<div id="downloadBox"></div>
 </div>
 <div style="clear:both;">
 	<h2>Input</h2>

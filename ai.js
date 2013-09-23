@@ -4,6 +4,26 @@
 // クラス拡張
 //
 
+//継承機能
+Function.prototype.extend = function(baseConstructor, newPrototype){
+	// http://sourceforge.jp/projects/h58pcdgame/scm/git/GameScriptCoreLibrary/blobs/master/www/corelib/jsbase.js
+	//最初にベースクラスのプロトタイプを引き継ぐ。
+	var F = function(){};
+	F.prototype = baseConstructor.prototype;
+	this.prototype = new F();
+	//新たなプロトタイプを追加・上書きする。
+	if(newPrototype){
+		for(var prop in newPrototype){
+			this.prototype[prop] = newPrototype[prop];
+		}
+	}
+	//コンストラクタを設定
+	this.prototype.constructor = this;
+	//ベースクラスのコンストラクタを設定
+	this.base = baseConstructor;
+	return this;
+};
+
 //配列関連
 Array.prototype.removeAllObject = function(anObject){
 	//Array中にある全てのanObjectを削除し、空いた部分は前につめる。
@@ -17,6 +37,17 @@ Array.prototype.removeAllObject = function(anObject){
 		}
 	}
 	return ret;
+}
+Array.prototype.removeAnObject = function(anObject){
+	//Array中にある最初のanObjectを削除し、空いた部分は前につめる。
+	//戻り値は削除が実行されたかどうか
+	for(var i = 0; i < this.length; i++){
+		if(this[i] == anObject){
+			this.splice(i, 1);
+			return true;
+		}
+	}
+	return false;
 }
 Array.prototype.removeByIndex = function(index){
 	//Array[index]を削除し、空いた部分は前につめる。
@@ -180,9 +211,13 @@ String.prototype.isHankakuKanaAt = function(index){
 //
 
 function AI(){
+	//ブラウザチェック
+	this.checkBrowser();
 	//サブクラス
 	this.input = new AI_Input(this);
 	this.wordRecognition = new AI_WordRecognition(this);
+	this.IOManager = new AI_IOManager(this);
+	this.memory = new AI_Memory(this);
 	//出力関連
 	this.outputTimer = null;
 	this.messageBox = null;
@@ -191,25 +226,43 @@ function AI(){
 	this.debugBox = null;
 	this.debugBoxBuffer = "";
 	this.maxDebugStringLength = 0xffff;
-	
+	this.downloadBox = null;
 }
 AI.prototype = {
+	UUID_MemoryFile: "42e11880-62b8-46ea-a1c4-481264d4440d",
 	sendToAI: function(str){
 		this.debug("**** Start thinking ****\n");
 		this.debug("input:[" + str + "]\n");
 		this.input.appendInput(str);
 		for(;;){
+			//入力処理ループ
 			var s = this.input.getSentence();
 			if(s === undefined){
 				break;
 			}
-			this.message(s + "\n");
+			this.message("User> " + s + "\n", true);
+			
+			//強制的に画面更新
+			this.outputShowTick();
 		}
 		this.wordRecognition.sortCandidateWordListByWordCount();
 		this.wordRecognition.computeEachWordLevel();
 		this.wordRecognition.sortCandidateWordListByWordLevel();
 		this.wordRecognition.debugShowCandidateWordList();
+		this.memory.saveMemory();
 		this.debug("**** End thinking ****\n");
+	},
+	sendTextFromFileToAI: function(str, name, modDate){
+		this.debug("sendTextFromFileToAI: " + modDate.toLocaleString() + " [" + name + "]\n");
+		//ひとまずセーブデータ読み込み機能のみを実装
+		if(str.indexOf(this.UUID_MemoryFile) == 0){
+			//UUID_MemoryFileが先頭にあるならば、これは記憶データファイルである。
+			this.debug("UUID_MemoryFile Found.\n");
+			this.memory.loadMemory(str);
+		} else{
+			//まるごとAIへ入力してみる
+			this.sendToAI(str);
+		}
 	},
 	setMessageBoxDOMObject: function(mBoxObj){
 		this.messageBox = mBoxObj;
@@ -219,9 +272,13 @@ AI.prototype = {
 		this.debugBox = dBoxObj;
 		this.setOutputTimer();
 	},
-	message: function(str){
+	message: function(str, noPrefix){
 		if(this.messageBox){
-			this.messageBoxBuffer += "AI> " + str;
+			if(!noPrefix){
+				this.messageBoxBuffer += "AI> " + str;
+			} else{
+				this.messageBoxBuffer += str;
+			}
 		}
 	},
 	debug: function(str){
@@ -262,6 +319,11 @@ AI.prototype = {
 			this.outputTimer = window.setInterval(function(){that.outputShowTick();}, 50);
 		}
 	},
+	checkBrowser: function(){
+		if(!window.File){
+			this.message("System> このブラウザは記憶保存(HTML5FileAPI)に対応していません。", true);
+		}
+	},
 }
 
 //
@@ -270,7 +332,6 @@ AI.prototype = {
 
 function AI_WordRecognition(env){
 	this.env = env;
-	this.candidateWordList = new Array();
 }
 AI_WordRecognition.prototype = {
 	slideLookUpCandidateWordByHistory: function(input){
@@ -294,7 +355,7 @@ AI_WordRecognition.prototype = {
 				}
 			}
 			if(cLen > 0){
-				cList.pushUnique(new AI_WordTag(iStr.substr(0, cLen))).wordCount++;
+				cList.pushUnique(new AI_CandidateWordTag(iStr.substr(0, cLen))).wordCount++;
 			}
 		}
 		//フィルター
@@ -304,12 +365,12 @@ AI_WordRecognition.prototype = {
 		this.mergeCandidateWordList(cList);
 	},
 	appendCandidateWordList: function(strTag){
-		var s = this.candidateWordList.isIncluded(strTag, function(a, b){ return (a.str == b.str); });
+		var s = this.env.memory.candidateWordList.isIncluded(strTag, function(a, b){ return (a.str == b.str); });
 		if(s){
 			s.wordCount++;
 		} else{
 			strTag.wordCount = 1;
-			this.candidateWordList.push(strTag);
+			this.env.memory.appendMemoryTag(strTag);
 		}
 	},
 	mergeCandidateWordList: function(strTagList){
@@ -319,7 +380,7 @@ AI_WordRecognition.prototype = {
 	},
 	debugShowCandidateWordList: function(){
 		this.env.debug("candidateWordList:\n");
-		var c = this.candidateWordList;
+		var c = this.env.memory.candidateWordList;
 		for(var i = 0, iLen = c.length; i < iLen; i++){
 			this.env.debug(c[i].wordCount.toString() + " :" + c[i].wordLevel.toString() + " :" + c[i].str + "\n");
 		}
@@ -383,12 +444,12 @@ AI_WordRecognition.prototype = {
 		}
 	},
 	sortCandidateWordListByWordCount: function(){
-		this.candidateWordList.stableSort(function(a, b){
+		this.env.memory.candidateWordList.stableSort(function(a, b){
 			return a.wordCount - b.wordCount;
 		});
 	},
 	sortCandidateWordListByWordLevel: function(){
-		this.candidateWordList.stableSort(function(a, b){
+		this.env.memory.candidateWordList.stableSort(function(a, b){
 			return a.wordLevel - b.wordLevel;
 		});
 	},
@@ -421,17 +482,91 @@ AI_WordRecognition.prototype = {
 		return;
 	},
 	computeEachWordLevel: function(){
-		var iLen = this.candidateWordList.length;
+		var iLen = this.env.memory.candidateWordList.length;
 		for(var i = 0; i < iLen; i++){
-			this.computeWordLevel(this.candidateWordList[i]);
+			this.computeWordLevel(this.env.memory.candidateWordList[i]);
 		}
 	}
 }
 
-function AI_WordTag(str){
-	this.str = str;
-	this.wordCount = 0;
-	this.wordLevel = 0;
+function AI_Memory(env){
+	this.env = env;
+	
+	//ルート
+	this.root = new Array();
+	//サブリスト
+	this.candidateWordList = new Array();
+}
+AI_Memory.prototype = {
+	saveMemory: function(){
+		var m = this.env.IOManager;
+		var s = this.env.UUID_MemoryFile + "\n";
+		var cl = this.root;
+		for(var i = 0, iLen = cl.length; i < iLen; i++){
+			if(cl[i] instanceof AI_MemoryTag){
+				s += cl[i].parseToStringData() + "\n";
+			}
+		}
+		var d = new Blob([s]);
+		if(d){
+			m.showDownloadLink(d);
+		}
+	},
+	loadMemory: function(str){
+		var a, t, d, m, q;
+		
+		this.env.debug("Memory loading...\n");
+		a = str.splitByArray(["\n"]);
+		
+		for(var i = 1, iLen = a.length; i < iLen; i++){
+			try{
+				d = eval(a[i]);
+			} catch(e){
+				this.env.debug(i + ": " + e + "\n");
+				continue;
+			}
+			q = d.type;
+			if(q == AI_MemoryTag.prototype.Type_CandidateWord){
+				t = new AI_CandidateWordTag();
+			} else{
+				t = new AI_MemoryTag();
+			}
+			AI_MemoryTag.prototype.loadFromMemoryData.call(t, d);
+			this.appendMemoryTag(t);
+		}
+		this.env.debug("Memory loading done.\n" + this.root.length + " tags exist.\n");
+	},
+	appendMemoryTag: function(tag){
+		//同じUUIDのタグがあった場合はデバッグ表示をして、新たなものに置き換える。
+		var s = this.root.isIncluded(tag, function(a, b){ return (a.uuid == b.uuid); });
+		if(s){
+			this.env.debug("appendMemoryTag: duplicated UUID " + tag.uuid + ", overwritten.\n");
+			this.root.removeAnObject(s);
+		}
+		//ルートに追加
+		this.root.push(tag);
+		//タグに合わせてそれぞれのサブリストに分配
+		if(tag instanceof AI_CandidateWordTag){
+			this.candidateWordList.push(tag);
+		}
+	},
+}
+
+function AI_IOManager(env){
+	this.env = env;
+}
+AI_IOManager.prototype = {
+	//http://www.atmarkit.co.jp/ait/articles/1112/16/news135_2.html
+	//http://qiita.com/mohayonao/items/fa7d33b75a2852d966fc
+	showDownloadLink: function(blobData){
+		if(window.URL){
+			this.env.downloadBox.innerHTML = "<a href='" + window.URL.createObjectURL(blobData) + "' target='_blank'>ダウンロード</a>";
+		} else if(window.webkitURL){
+			this.env.downloadBox.innerHTML = "<a href='" + window.webkitURL.createObjectURL(blobData) + "' target='_blank'>ダウンロード</a>";
+		} else{
+			window.alert("Can't create URL");
+		}
+	}
 }
 
 function AI_Input(env){
@@ -440,7 +575,7 @@ function AI_Input(env){
 	this.sentenceList = new Array();
 }
 AI_Input.prototype = {
-	maxHistoryLength: 32,
+	maxHistoryLength: 16,
 	sentenceSeparator: [
 		"。",
 		"！",
@@ -480,3 +615,137 @@ AI_Input.prototype = {
 		}
 	},
 }
+
+function AI_MemoryTag(typeUUIDStr){
+	this.uuid = null;
+	this.initUUID();
+	this.type = typeUUIDStr;
+	this.createdDate = new Date();
+}
+AI_MemoryTag.prototype = {
+	Type_CandidateWord: "2fba8fc1-2b9a-46e0-8ade-455c0bd30637",
+	//http://codedehitokoto.blogspot.jp/2012/01/javascriptuuid.html
+	initUUID: function(){
+		if(!this.uuid){
+			var f = this.initUUIDSub;
+			this.uuid = f() + f() + "-" + 
+						f() + "-" + 
+						f() + "-" + 
+						f() + "-" + 
+						f() + f() + f();
+		}
+	},
+	initUUIDSub: function(){
+		return (((1 + Math.random()) * 0x10000) | 0).toString(16).toLowerCase().substring(1);
+	},
+	parseToStringData: function(data){
+		//uuid:type:
+		var d = new Object();
+		//
+		d.id = this.uuid;
+		d.type = this.type;
+		d.cDate = this.createdDate.toUTCString();
+		//
+		d.data = data;
+		//
+		return this.parseArrayToStringSource(d);
+	},
+	loadFromMemoryData: function(data){
+		this.uuid = data.id;
+		this.type = data.type;
+		this.createdDate = new Date(data.cDate);
+		if(data.data){
+			if(this.loadFromMemoryData != AI_MemoryTag.prototype.loadFromMemoryData){
+				this.loadFromMemoryData(data.data);
+			}
+		}
+	},
+	escapeForMemory: function(str){
+		return "\"" + str.replaceAll(":", "@:").replaceAll("\"", "\\\"") + "\"";
+	},
+	unescapeForMemory: function(str){
+		return str.replaceAll("@:", ":");
+	},
+	parseArrayToStringSource: function(anArray){
+		if(!anArray){
+			return "null";
+		}
+		var srcstr = "var t=";
+		srcstr += this.parseArrayToStringSourceSub(anArray);
+		srcstr += ";t;";
+		return srcstr;
+	},
+	parseArrayToStringSourceSub: function(anArray){
+		if(!anArray){
+			return "null";
+		}
+		var srcstr = "{";
+		for(var k in anArray){
+			var v = anArray[k];
+			var t = Object.prototype.toString.call(v);
+			if(v instanceof Array){
+				srcstr += k + ":" + this.parseArrayToStringSourceSub(v) + ",";
+			} else if(!isNaN(v) && v.toString().replace(/\s+/g, "").length > 0){
+				//isNaNだけでは数値判定できないので、文字列化後の空白文字を削除した長さも検査している。
+				srcstr += k + ":" + v + ",";
+			} else if(t == "[object String]"){
+				//文字列として変換
+				srcstr += k + ":'" + v + "',";
+			} else if(t == "[object Object]"){
+				srcstr += k + ":" + this.parseArrayToStringSourceSub(v) + ",";
+			} else{
+				srcstr += k + ":undefined,";
+			}
+		}
+		if(srcstr.charAt(srcstr.length - 1) == ","){
+			//最後の余計なカンマを削除
+			srcstr = srcstr.slice(0, srcstr.length - 1);
+		}
+		srcstr += "}";
+		return srcstr;
+	},
+}
+
+var AI_CandidateWordTag = function(str){
+	AI_CandidateWordTag.base.call(this, AI_CandidateWordTag.base.prototype.Type_CandidateWord);
+	this.str = str;
+	this.wordCount = 0;
+	this.wordLevel = 0;
+}.extend(AI_MemoryTag, {
+	parseToStringData: function(){
+		//uuid:type:str:wordCount:wordLevel
+		var e = this.escapeForMemory;
+		var d = new Object();
+		d.s = this.str;
+		d.c = this.wordCount;
+		d.l = this.wordLevel.toString();
+		
+		return AI_CandidateWordTag.base.prototype.parseToStringData.call(this, d);
+	},
+	loadFromMemoryData: function(data){
+		this.str = data.s;
+		this.wordCount = data.c;
+		this.wordLevel = data.l;
+	},
+});
+
+var AI_WordTag = function(str){
+	AI_WordTag.base.call(this, AI_CandidateWordTag.base.prototype.Type_CandidateWord);
+	this.str = str;
+	this.wordCount = 0;
+}.extend(AI_MemoryTag, {
+	parseToStringData: function(){
+		//uuid:type:str:wordCount:wordLevel
+		var e = this.escapeForMemory;
+		var d = new Object();
+		d.s = this.str;
+		d.c = this.wordCount;
+		return AI_CandidateWordTag.base.prototype.parseToStringData.call(this) + e(this.parseArrayToStringSource(d));
+	},
+	loadFromMemoryData: function(data){
+		this.str = data.s;
+		this.wordCount = data.c;
+	},
+});
+
+
