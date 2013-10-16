@@ -122,7 +122,18 @@ Array.prototype.stableSort = function(f){
 	for(var i = 0;i < this.length;i++){
 		delete this[i].__id__;
 	}
-};
+}
+
+Array.prototype.splitByArray = function(separatorList){
+	//Array中の文字列をseparatorList内の文字列でそれぞれで分割し、それらの文字列が含まれた配列を返す。
+	var retArray = new Array();
+	
+	for(var i = 0, iLen = this.length; i < iLen; i++){
+		retArray = retArray.concat(this[i].splitByArray(separatorList));
+	}
+	
+	return retArray;
+}
 
 //文字列関連
 String.prototype.replaceAll = function(org, dest){
@@ -141,6 +152,7 @@ String.prototype.compareLeftHand = function (search){
 }
 String.prototype.splitByArray = function(separatorList){
 	//リスト中の文字列それぞれで分割された配列を返す。
+	//separatorはそれ以前の文字列の末尾に追加された状態で含まれる。
 	var retArray = new Array();
 	retArray[0] = this;
 	
@@ -150,7 +162,7 @@ String.prototype.splitByArray = function(separatorList){
 			tmpArray[k] = retArray[k].split(separatorList[i]);
 			if(tmpArray[k][tmpArray[k].length - 1] == ""){
 				tmpArray[k].splice(tmpArray[k].length - 1, 1);
-				if(tmpArray[k] && tmpArray.length > 0){
+				if(tmpArray[k] && tmpArray[k].length > 0){
 					for(var m = 0; m < tmpArray[k].length; m++){
 						tmpArray[k][m] += separatorList[i];
 					}
@@ -167,6 +179,35 @@ String.prototype.splitByArray = function(separatorList){
 	
 	return retArray;
 }
+
+String.prototype.splitByArraySeparatorSeparated = function(separatorList){
+	//リスト中の文字列それぞれで分割された配列を返す。
+	//separatorも分割された状態で含まれる。
+	var retArray = new Array();
+	retArray[0] = this;
+	
+	for(var i = 0; i < separatorList.length; i++){
+		var tmpArray = new Array();
+		for(var k = 0; k < retArray.length; k++){
+			var tmpArraySub = retArray[k].split(separatorList[i]);
+			tmpArray[k] = new Array();
+			for(var m = 0, mLen = tmpArraySub.length - 1; m < mLen; m++){
+				if(tmpArraySub[m] != ""){
+					tmpArray[k].push(tmpArraySub[m]);
+				}
+				tmpArray[k].push(separatorList[i]);
+			}
+			if(tmpArraySub[tmpArraySub.length - 1] != ""){
+				tmpArray[k].push(tmpArraySub[m]);
+			}
+		}
+		retArray = new Array();
+		retArray = retArray.concat.apply(retArray, tmpArray);
+	}
+	
+	return retArray;
+}
+
 String.prototype.trim = function(str){
 	return this.replace(/^[ 　	]+|[ 　	]+$/g, "").replace(/\n$/g, "");
 }

@@ -13,12 +13,6 @@ AI_Think.prototype = {
 				if(s === undefined){
 					this.inputting = false;
 					
-					this.env.wordRecognition.sortCandidateWordListByWordCount();
-					this.env.wordRecognition.computeEachWordLevel();
-					this.env.wordRecognition.sortCandidateWordListByWordLevel();
-					this.env.wordRecognition.debugShowCandidateWordList();
-					this.env.memory.saveMemory();
-					
 					break;
 				}
 				this.env.message("User> " + s + "\n", true);

@@ -30,8 +30,9 @@ AI_Input.prototype = {
 		"?",
 		"\n",
 	],
-	appendInput: function(str){
-		var sList = str.splitByArray(this.sentenceSeparator);
+	appendInput: function(input){
+		//inputはStringとArrayが使用できる
+		var sList = input.splitByArray(this.sentenceSeparator);
 		
 		this.sentenceList = this.sentenceList.concat(sList)
 	},

@@ -1,0 +1,37 @@
+#17ddde48-7d4c-498f-98d8-3e73f8845028
+
+unsigned char table[32] = {
+	196, 100, 187,  61, 164,  29, 129,   9,
+	 90,   5,  53,  17,  23,  44,   7,  81,
+	  7, 119,  23, 156,  53, 183,  90, 195,
+	129, 191, 164, 171, 187, 139, 196, 100,
+};
+
+procedure main()
+{
+	int x0, y0, x1, y1, col, i, j;
+	unsigned char *p, *q;
+
+	p = table;
+	for (i = 0; i != 15; i++) {
+		x0 = *p;
+		p++
+		y0 = *p;
+		p++
+		
+		q = table;
+		for (j = -8; j != 8; j++) {
+			x1 = *q;
+			q++;
+			x1 = *q;
+			q++;
+			col = i - j;
+			if (col <= 0){
+				col = 1 - col;
+			}
+			if (col <= 7) {
+				junkApi_drawLine(1 + 4, x0, y0, x1, y1, col);
+			}
+		}
+	}
+}

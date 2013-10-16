@@ -1,4 +1,4 @@
-42e11880-62b8-46ea-a1c4-481264d4440d
+#42e11880-62b8-46ea-a1c4-481264d4440d
 var t={id:'c0c70830-9447-8c0e-c684-889e05d7a458',type:'2fba8fc1-2b9a-46e0-8ade-455c0bd30637',cDate:'Mon, 23 Sep 2013 15:28:40 GMT',data:{s:'人工知能',c:3,l:1}};t;
 var t={id:'27fb9485-7f03-61a3-bdf4-f94cc93b8145',type:'2fba8fc1-2b9a-46e0-8ade-455c0bd30637',cDate:'Mon, 23 Sep 2013 15:28:40 GMT',data:{s:'ia',c:1,l:1}};t;
 var t={id:'7456f248-3791-d60d-cfe3-b8c8ee5e7dec',type:'2fba8fc1-2b9a-46e0-8ade-455c0bd30637',cDate:'Mon, 23 Sep 2013 15:28:40 GMT',data:{s:'知能',c:3,l:1}};t;

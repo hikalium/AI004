@@ -9,7 +9,7 @@ function AI_Memory(env){
 AI_Memory.prototype = {
 	saveMemory: function(){
 		var m = this.env.IOManager;
-		var s = this.env.UUID_MemoryFile + "\n";
+		var s = "#" + this.env.UUID_Mode_ReadMemory + "\n";
 		var cl = this.root;
 		for(var i = 0, iLen = cl.length; i < iLen; i++){
 			if(cl[i] instanceof AI_MemoryTag){
@@ -34,6 +34,9 @@ AI_Memory.prototype = {
 				this.env.debug(i + ": " + e + "\n");
 				continue;
 			}
+			if(d === undefined){
+				continue;
+			}
 			q = d.type;
 			if(q == AI_MemoryTag.prototype.Type_CandidateWord){
 				t = new AI_CandidateWordTag();
@@ -50,7 +53,7 @@ AI_Memory.prototype = {
 		var s = this.root.isIncluded(tag, function(a, b){ return (a.uuid == b.uuid); });
 		if(s){
 			this.env.debug("appendMemoryTag: duplicated UUID " + tag.uuid + ", overwritten.\n");
-			this.root.removeAnObject(s);
+			this.removeMemoryTagByObject(s);
 		}
 		//ルートに追加
 		this.root.push(tag);
@@ -58,5 +61,9 @@ AI_Memory.prototype = {
 		if(tag instanceof AI_CandidateWordTag){
 			this.candidateWordList.push(tag);
 		}
+	},
+	removeMemoryTagByObject: function(obj){
+		this.root.removeAnObject(obj);
+		this.candidateWordList.removeAnObject(obj);
 	},
 }
