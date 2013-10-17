@@ -153,6 +153,8 @@ String.prototype.compareLeftHand = function (search){
 String.prototype.splitByArray = function(separatorList){
 	//リスト中の文字列それぞれで分割された配列を返す。
 	//separatorはそれ以前の文字列の末尾に追加された状態で含まれる。
+	//"abcdefg".splitByArray(["a", "e", "g"]);
+	//	= ["a", "bcde", "fg"]
 	var retArray = new Array();
 	retArray[0] = this;
 	
@@ -183,6 +185,8 @@ String.prototype.splitByArray = function(separatorList){
 String.prototype.splitByArraySeparatorSeparated = function(separatorList){
 	//リスト中の文字列それぞれで分割された配列を返す。
 	//separatorも分割された状態で含まれる。
+	//"abcdefg".splitByArraySeparatorSeparated(["a", "e", "g"]);
+	//	= ["a", "bcd", "e", "f", "g"]
 	var retArray = new Array();
 	retArray[0] = this;
 	
@@ -203,6 +207,53 @@ String.prototype.splitByArraySeparatorSeparated = function(separatorList){
 		}
 		retArray = new Array();
 		retArray = retArray.concat.apply(retArray, tmpArray);
+	}
+	
+	return retArray;
+}
+
+String.prototype.splitByArraySeparatorSeparatedLong = function(separatorList){
+	//リスト中の文字列それぞれで分割された配列を返す。
+	//separatorも分割された状態で含まれる。
+	//separatorListの前の方にあるseparatorは、後方のseparatorによって分割されない。
+	//"abcdefgcdefg".splitByArraySeparatorSeparatedLong(["bcde", "cd", "f"]);
+	//	= ["a", "bcde", "f", "g", "cd", "e", "f", "g"]
+	//"for (i = 0; i != 15; i++) {".splitByArraySeparatorSeparatedLong(["!=", "(", ")", "="]);
+	//	= ["for ", "(", "i ", "=", " 0; i ", "!=", " 15; i++", ")", " {"]
+	var retArray = new Array();
+	var checkArray = new Array();
+	retArray[0] = this;
+	checkArray[0] = false;
+	
+	for(var i = 0; i < separatorList.length; i++){
+		var tmpArray = new Array();
+		var tmpCheckArray = new Array();
+		for(var k = 0; k < retArray.length; k++){
+			if(!checkArray[k]){
+				var tmpArraySub = retArray[k].split(separatorList[i]);
+				tmpArray[k] = new Array();
+				tmpCheckArray[k] = new Array();
+				for(var m = 0, mLen = tmpArraySub.length - 1; m < mLen; m++){
+					if(tmpArraySub[m] != ""){
+						tmpArray[k].push(tmpArraySub[m]);
+						tmpCheckArray[k].push(false);
+					}
+					tmpArray[k].push(separatorList[i]);
+					tmpCheckArray[k].push(true);
+				}
+				if(tmpArraySub[tmpArraySub.length - 1] != ""){
+					tmpArray[k].push(tmpArraySub[m]);
+					tmpCheckArray[k].push(false);
+				}
+			} else{
+				tmpArray.push([retArray[k]]);
+				tmpCheckArray.push([true]);
+			}
+		}
+		retArray = new Array();
+		checkArray = new Array();
+		retArray = retArray.concat.apply(retArray, tmpArray);
+		checkArray = checkArray.concat.apply(checkArray, tmpCheckArray);
 	}
 	
 	return retArray;

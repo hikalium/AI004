@@ -7,6 +7,21 @@ unsigned char table[32] = {
 	129, 191, 164, 171, 187, 139, 196, 100,
 };
 
+procedure inline drawLine(int mode, x0, y0, x1, y1, col){
+	@asm OSECPU
+	REMARK 05 0100000003;
+	R30 = 0xff45;
+	R31 = mode;
+	R32 = x0;
+	R33 = y0;
+	R34 = x1;
+	R35 = y1;
+	R36 = col;
+	CALL P28;
+	REMARK 01 00;
+	@end
+}
+
 procedure main()
 {
 	int x0, y0, x1, y1, col, i, j;
@@ -15,9 +30,9 @@ procedure main()
 	p = table;
 	for (i = 0; i != 15; i++) {
 		x0 = *p;
-		p++
+		p++;
 		y0 = *p;
-		p++
+		p++;
 		
 		q = table;
 		for (j = -8; j != 8; j++) {
@@ -30,7 +45,7 @@ procedure main()
 				col = 1 - col;
 			}
 			if (col <= 7) {
-				junkApi_drawLine(1 + 4, x0, y0, x1, y1, col);
+				drawLine(1 + 4, x0, y0, x1, y1, col);
 			}
 		}
 	}
