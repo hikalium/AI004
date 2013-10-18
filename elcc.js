@@ -60,6 +60,7 @@ ELCHNOSCompiler.prototype = {
 		this.line = str.split("\n");
 		//分割
 		this.separated = str.splitByArraySeparatorSeparatedLong(this.keyWordList);
+		//コメント除去
 		this.compile_removeComment();
 		
 		//不要な文字を削除
@@ -247,7 +248,7 @@ ELCHNOSCompiler.prototype = {
 			//リストにない予約語
 			} else if(s == "procedure" && (mode == 0)){
 				//関数宣言
-				var f = new ELCHNOSCompiler_ExpressionStructure_Function(this.env);
+				var f = new ELCHNOSCompiler_ExpressionStructure_Function(this);
 				this.currentStructure.push(f);
 				this.changeCurrentStructure(f.structure);
 				currentExpression = f;
@@ -268,82 +269,49 @@ ELCHNOSCompiler.prototype = {
 				i++;
 				s = this.separated[i];
 				if(s == "("){
-					var f = new ELCHNOSCompiler_ExpressionStructure_Loop_for(this.env);
+					var f = new ELCHNOSCompiler_ExpressionStructure_Loop_for(this);
 					this.currentStructure.push(f);
 					this.changeCurrentStructure(f.structure);
 					currentExpression = f;
 					//初期化式
-					f.initializer = new ELCHNOSCompiler_ExpressionStructure_Expression(this.env);
+					f.initializer = new ELCHNOSCompiler_ExpressionStructure_Expression(this);
 					for(i++; ; i++){
 						s = this.separated[i];
 						if(s == ";"){
 							break;
 						}
-						if(this.isOperator(s)){
-							f.initializer.pushOperator(s);
-						} else{
-							//大文字小文字を区別
-							s = this.separated[i];
-							o = this.searchIdentifier(s);
-							if(o){
-								f.initializer.pushOperand(o);
-							} else if(!isNaN(s)){
-								f.initializer.pushOperand(s);
-							} else{
-								unexpected = true;
-								break;
-							}
+						f.initializer.pushIdentifier(s);
+						if(unexpected){
+							break;
 						}
 					}
 					console.log(f.initializer);
 					//条件評価式
 					if(!unexpected){
-						f.conditonalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this.env);
+						f.conditonalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this);
 						for(i++; ; i++){
 							s = this.separated[i];
 							if(s == ";"){
 								break;
 							}
-							if(this.isOperator(s)){
-								f.conditonalExpression.pushOperator(s);
-							} else{
-								//大文字小文字を区別
-								s = this.separated[i];
-								o = this.searchIdentifier(s);
-								if(o){
-									f.conditonalExpression.pushOperand(o);
-								} else if(!isNaN(s)){
-									f.conditonalExpression.pushOperand(s);
-								} else{
-									unexpected = true;
-									break;
-								}
+							f.conditonalExpression.pushIdentifier(s);
+							if(unexpected){
+								break;
 							}
 						}
 						console.log(f.conditonalExpression);
 					}
 					//更新式
 					if(!unexpected){
-						f.incrementalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this.env);
+						f.incrementalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this);
 						for(i++; ; i++){
 							s = this.separated[i];
 							if(s == ")"){
 								break;
 							}
-							if(this.isOperator(s)){
-								f.incrementalExpression.pushOperator(s);
-							} else{
-								//大文字小文字を区別
-								s = this.separated[i];
-								o = this.searchIdentifier(s);
-								if(o){
-									f.incrementalExpression.pushOperand(o);
-								} else if(!isNaN(s)){
-									f.incrementalExpression.pushOperand(s);
-								} else{
-									unexpected = true;
-									break;
-								}
+							f.incrementalExpression.pushIdentifier(s);
+							if(unexpected){
+								break;
 							}
 						}
 						console.log(f.incrementalExpression);
@@ -368,31 +336,20 @@ ELCHNOSCompiler.prototype = {
 				i++;
 				s = this.separated[i];
 				if(s == "("){
-					var f = new ELCHNOSCompiler_ExpressionStructure_if(this.env);
+					var f = new ELCHNOSCompiler_ExpressionStructure_if(this);
 					this.currentStructure.push(f);
 					this.changeCurrentStructure(f.structure);
 					currentExpression = f;
 					//条件評価式
-					f.conditonalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this.env);
+					f.conditonalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this);
 					for(i++; ; i++){
 						s = this.separated[i];
 						if(s == ")"){
 							break;
 						}
-						if(this.isOperator(s)){
-							f.conditonalExpression.pushOperator(s);
-						} else{
-							//大文字小文字を区別
-							s = this.separated[i];
-							o = this.searchIdentifier(s);
-							if(o){
-								f.conditonalExpression.pushOperand(o);
-							} else if(!isNaN(s)){
-								f.conditonalExpression.pushOperand(s);
-							} else{
-								unexpected = true;
-								break;
-							}
+						f.conditonalExpression.pushIdentifier(s);
+						if(unexpected){
+							break;
 						}
 					}
 					console.log(f.conditonalExpression);
@@ -410,8 +367,10 @@ ELCHNOSCompiler.prototype = {
 			//OSECPUアセンブリ
 			} else if(s == "remark" && (mode == 70)){
 				//超手抜き
-				var b = new ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(this.env);
+				var b = new ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(this);
 				this.currentStructure.push(b);
+				//FE	len	...
+				b.bin.push(0xfe);
 				//len
 				i++;
 				s = this.separated[i];
@@ -448,7 +407,7 @@ ELCHNOSCompiler.prototype = {
 				}
 			} else if(s == "call" && (mode == 70)){
 				//超手抜き
-				var b = new ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(this.env);
+				var b = new ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(this);
 				this.currentStructure.push(b);
 				
 				//第二引数が何か確認する
@@ -500,7 +459,7 @@ ELCHNOSCompiler.prototype = {
 			} else if(mode == 11 || mode == 52){
 				//変数または定数の宣言
 				//52: 引数名
-				var v = new ELCHNOSCompiler_ExpressionStructure_Variable(this.env);
+				var v = new ELCHNOSCompiler_ExpressionStructure_Variable(this);
 				v.bits = numValBits;
 				v.isSigned = (numValSignFlag == 0) ? false : (0 != (numValSignFlag & this.Flag_Sign_Signed));
 				s = this.separated[i];
@@ -531,62 +490,23 @@ ELCHNOSCompiler.prototype = {
 				currentExpression.identifier = this.separated[i];
 				mode = 51;
 			} else{
-				//現在のスコープを検索
-				//大文字小文字を区別
-				s = this.separated[i];
-				o = this.searchIdentifier(s);
-				if(mode == 0 || mode == 70){
-					//最初の左辺
-					if(o){
-						var f = new ELCHNOSCompiler_ExpressionStructure_Expression(this.env);
-						f.pushOperand(o);
+				if(mode == 0 || mode == 70 || mode == 60 || mode == 71){
+					//大文字小文字を区別
+					s = this.separated[i];
+					if(mode == 0 || mode == 70){
+						//最初の左辺だったら追加処理
+						var f = new ELCHNOSCompiler_ExpressionStructure_Expression(this);
 						this.currentStructure.push(f);
 						currentExpression = f;
+					}
+					currentExpression.pushIdentifier(s);
+					if(!unexpected){
 						if(mode == 0){
 							mode = 60;
 						} else if(mode == 70){
 							mode = 71;
 						}
-					} else{
-						if(mode == 70){
-							//レジスタ名かもしれない
-							s = this.separated[i].toLowerCase();
-							if((s.indexOf("r") == 0 || s.indexOf("p") == 0) && s.length == 3){
-								var f = new ELCHNOSCompiler_ExpressionStructure_Expression(this.env);
-								f.pushOperand(s);
-								this.currentStructure.push(f);
-								currentExpression = f;
-								mode = 71;
-							} else{
-								unexpected = true;
-							}
-						} else{
-							unexpected = true;
-						}
 					}
-				} else if(mode == 60 || mode == 71){
-					//評価式オペランド
-					if(this.isOperator(s)){
-						currentExpression.pushOperator(s);
-					} else{
-						if(o){
-							currentExpression.pushOperand(o);
-						} else if(!isNaN(s)){
-							currentExpression.pushOperand(s);
-						} else{
-							unexpected = true;
-						}
-					}
-					if(unexpected && mode == 71){
-						//レジスタ名かもしれない
-						s = this.separated[i].toLowerCase();
-						if((s.indexOf("r") == 0 || s.indexOf("p") == 0) && s.length == 3){
-							unexpected = false;
-							currentExpression.pushOperand(s);
-						}
-					}
-				} else{
-					unexpected = true;
 				}
 			}
 			if(unexpected){
@@ -695,8 +615,9 @@ ELCHNOSCompiler.prototype = {
 			s == "!=" ||
 			s == "++" ||
 			s == "<" ||
-			//s == "(" ||
-			//s == ")"||
+			s == "(" ||
+			s == ")"||
+			s == "," ||
 			false
 		);
 	},
@@ -706,8 +627,8 @@ ELCHNOSCompiler.prototype = {
 	},
 }
 
-function ELCHNOSCompiler_ExpressionStructure_Variable(env){
-	this.env = env;
+function ELCHNOSCompiler_ExpressionStructure_Variable(compiler){
+	this.compiler = compiler;
 	this.bits = 0;
 	this.length = 0;
 	this.isSigned = false;
@@ -721,8 +642,8 @@ ELCHNOSCompiler_ExpressionStructure_Variable.prototype = {
 
 }
 
-function ELCHNOSCompiler_ExpressionStructure_Function(env){
-	this.env = env;
+function ELCHNOSCompiler_ExpressionStructure_Function(compiler){
+	this.compiler = compiler;
 	this.structure = new Array();
 	this.identifier = null;
 }
@@ -730,8 +651,8 @@ ELCHNOSCompiler_ExpressionStructure_Function.prototype = {
 
 }
 
-function ELCHNOSCompiler_ExpressionStructure_Loop_for(env){
-	this.env = env;
+function ELCHNOSCompiler_ExpressionStructure_Loop_for(compiler){
+	this.compiler = compiler;
 	this.structure = new Array();
 	this.initializer = null;
 	this.conditonalExpression = null;
@@ -742,8 +663,8 @@ ELCHNOSCompiler_ExpressionStructure_Loop_for.prototype = {
 
 }
 
-function ELCHNOSCompiler_ExpressionStructure_if(env){
-	this.env = env;
+function ELCHNOSCompiler_ExpressionStructure_if(compiler){
+	this.compiler = compiler;
 	this.structure = new Array();
 	this.conditonalExpression = null;
 }
@@ -751,8 +672,8 @@ ELCHNOSCompiler_ExpressionStructure_if.prototype = {
 
 }
 
-function ELCHNOSCompiler_ExpressionStructure_Expression(env){
-	this.env = env;
+function ELCHNOSCompiler_ExpressionStructure_Expression(compiler){
+	this.compiler = compiler;
 	this.evalStack = new Array();
 	this.evalOperatorStack = new Array();
 	this.lastOperatorPriority = ELCHNOSCompiler_ExpressionStructure_Expression.prototype.operatorPriorityList.length;
@@ -775,33 +696,108 @@ ELCHNOSCompiler_ExpressionStructure_Expression.prototype = {
 		//"+=",
 	],
 	pushOperand: function(identifier){
+		//オペランドを追加する
+		//数値ならば数値自体もしくは等価な文字列
+		//オブジェクトであればそのオブジェクトのインスタンスを渡す
 		this.evalStack.push(identifier);
 	},
 	pushOperator: function(operator){
-	/*
+		//演算子を追加する。
+		//演算子は文字列で渡す
 		if(operator == "("){
-			//開き括弧を記憶
-			if(this.evalStack[])
-		}
-		*/
-		var p = this.getOperatorPriority(operator);
-		if(this.lastOperatorPriority >= p){
-			//とりあえずとっておく
-			this.evalOperatorStack.push(operator);
-		} else{
-			//優先順位がより高い演算子を先に積んでおき、そのあと自分をとっておく
-			for(var i = 0, iLen = this.evalOperatorStack.length; i < iLen; i++){
-				var o = this.evalOperatorStack.pop();
-				if(this.getOperatorPriority(o) < p){
-					this.evalStack.push(o);
-				} else{
-					this.evalOperatorStack.push(o);
-					break;
-				}
+			//開き括弧のevalOperatorStack内でのIndexを記憶
+			if(this.evalStack[this.evalStack.length - 1] instanceof ELCHNOSCompiler_ExpressionStructure_Function){
+				//関数呼び出しの括弧
+				//-(index + 1)で記憶しておく
+				this.startBracketIndexStack.push(-(this.evalOperatorStack.length + 1));
+			} else{
+				//式の優先順位を示す括弧
+				this.startBracketIndexStack.push(this.evalOperatorStack.length);
 			}
 			this.evalOperatorStack.push(operator);
+		} else if(operator == ")"){
+			//開き括弧のインデックスを得る
+			//開き括弧までのOperatorを順にevalStackにpushして、括弧内の式を完結させる
+			var i = this.startBracketIndexStack.pop();
+			for(;;){
+				var o = this.evalOperatorStack.pop();
+				if(o == "("){
+					break;
+				} else if(o === undefined){
+					//括弧の個数が合わないのでエラー
+					this.compiler.unexpected = true;
+					return;
+				}
+				this.evalStack.push(o);
+			}
+			if(i < 0){
+				//関数呼び出しの括弧
+				this.evalStack.push("()");
+			}
+		} else if(operator == ","){
+			//現在の階層の式を完結させる
+			for(;;){
+				var o = this.evalOperatorStack.pop();
+				if(o == "("){
+					//開き括弧は戻しておく
+					this.evalOperatorStack.push(o);
+					break;
+				} else if(o === undefined){
+					//すべてプッシュしたので終了
+					break;
+				}
+				this.evalStack.push(o);
+			}
+		} else{
+			//一般operator
+			var p = this.getOperatorPriority(operator);
+			if(this.lastOperatorPriority >= p){
+				//とりあえずとっておく
+				this.evalOperatorStack.push(operator);
+			} else{
+				//優先順位がより高い演算子を先に積んでおき、そのあと自分をとっておく
+				for(var i = 0, iLen = this.evalOperatorStack.length; i < iLen; i++){
+					var o = this.evalOperatorStack.pop();
+					if(this.getOperatorPriority(o) < p){
+						this.evalStack.push(o);
+					} else{
+						this.evalOperatorStack.push(o);
+						break;
+					}
+				}
+				this.evalOperatorStack.push(operator);
+			}
+			this.lastOperatorPriority = p;
 		}
-		this.lastOperatorPriority = p;
+	},
+	pushIdentifier: function(identifier){
+		//識別子を式に追加する。
+		//自動的にオペランドか演算子かを判別し、適切にプッシュする。
+		//識別子は大文字小文字を区別できる状態で渡すようにする
+		//レジスタ直接指定もできる
+		
+		if(this.isOperator(identifier)){
+			//演算子
+			this.pushOperator(identifier);
+		} else {
+			var o = this.compiler.searchIdentifier(identifier);
+			if(o){
+				//オブジェクトオペランド
+				this.pushOperand(o);
+			} else if(!isNaN(identifier)){
+				//即値オペランド
+				this.pushOperand(parseInt(identifier));
+			} else{
+				//レジスタ名である可能性を確認
+				var s = identifier.toLowerCase();
+				if((s.indexOf("r") == 0 || s.indexOf("p") == 0) && s.length == 3){
+					//レジスタ名指定
+					this.pushOperand(s);
+				} else{
+					this.compiler.unexpected = true;
+				}
+			}
+		}
 	},
 	getOperatorPriority: function(operator){
 		for(var i = 0, iLen = this.operatorPriorityList.length; i < iLen; i++){
@@ -811,10 +807,26 @@ ELCHNOSCompiler_ExpressionStructure_Expression.prototype = {
 		}
 		return i;
 	},
+	isOperator: function(s){
+		return (
+			s == "=" ||
+			s == "+" ||
+			s == "-" ||
+			s == "*" ||
+			s == "/" ||
+			s == "!=" ||
+			s == "++" ||
+			s == "<" ||
+			s == "(" ||
+			s == ")"||
+			s == "," ||
+			false
+		);
+	},
 }
 
-function ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(env){
-	this.env = env;
+function ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(compiler){
+	this.compiler = compiler;
 	this.bin = new Array();
 	this.isCompiled = false;
 }
