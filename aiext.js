@@ -135,6 +135,15 @@ Array.prototype.splitByArray = function(separatorList){
 	return retArray;
 }
 
+Array.prototype.logAsHexByte = function(separatorList){
+	//十六進バイト列としてデバッグ出力する。
+	var ds = "";
+	for(var i = 0, iLen = this.length; i < iLen; i++){
+		ds += ("00" + this[i].toString(16).toUpperCase()).slice(-2);
+	}
+	console.log(ds);
+}
+
 //文字列関連
 String.prototype.replaceAll = function(org, dest){
 	//String中にある文字列orgを文字列destにすべて置換する。
