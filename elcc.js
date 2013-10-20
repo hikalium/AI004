@@ -38,6 +38,7 @@ ELCHNOSCompiler.prototype = {
 		"-=",
 		"*=",
 		"/=",
+		"<=",
 		"++",
 		"--",
 		"\n",
@@ -382,23 +383,14 @@ ELCHNOSCompiler.prototype = {
 						//03	reg0	imm32
 					b.bin.push(0x03);
 					b.bin.push(0x30);
-					b.bin.push((labelID >> 24) & 0xFF);
-					b.bin.push((labelID >> 16) & 0xFF);
-					b.bin.push((labelID >> 8) & 0xFF);
-					b.bin.push(labelID & 0xFF);
+					b.appendInstruction_UINT32BE(labelID);
 					//PCP(P3F, Pxx)
 						//1E	reg0P	reg1P
 					b.bin.push(0x1e);
 					b.bin.push(0x3f);
 					b.bin.push(parseInt(s.substr(1),16));
-					//LB(1, labelID)
-						//02	opt	imm32
-					b.bin.push(0x02);
-					b.bin.push(0x01);
-					b.bin.push((labelID >> 24) & 0xFF);
-					b.bin.push((labelID >> 16) & 0xFF);
-					b.bin.push((labelID >> 8) & 0xFF);
-					b.bin.push(labelID & 0xFF);
+					
+					b.appendInstruction_LB(0x01, labelID);
 					//[FE] [01] [00]
 					b.bin.push(0xfe);
 					b.bin.push(0x01);
@@ -504,6 +496,11 @@ ELCHNOSCompiler.prototype = {
 				return;
 			}
 		}
+		
+		this.expandBinaryString();
+		this.assignRegister();
+		this.bin.logAsHexByte();
+		this.saveBinary();
 		
 		console.log(this.bin);
 	},
@@ -690,6 +687,7 @@ ELCHNOSCompiler.prototype = {
 			if(this.integerRegisterAllocationTable[i][1] == owner){
 				//見つけた
 				this.integerRegisterAllocationTable.splice(i, 1);
+				iLen--;
 			}
 		}
 		//PointerRegister
@@ -697,9 +695,60 @@ ELCHNOSCompiler.prototype = {
 			if(this.pointerRegisterAllocationTable[i][1] == owner){
 				//見つけた
 				this.pointerRegisterAllocationTable.splice(i, 1);
+				iLen--;
 			}
 		}
 	},
+	expandBinaryString: function(){
+		var ary = this.bin;
+		var b = new Array();
+		var aryStack = new Array();
+		var indexStack = new Array();
+		for(var i = 0; ; i++){
+			if(ary[i] === undefined){
+				ary = aryStack.pop();
+				if(ary === undefined){
+					break;
+				}
+				i = indexStack.pop();
+			}
+			if(ary[i] instanceof Array){
+					aryStack.push(ary);
+					indexStack.push(i + 1);
+					ary = ary[i];
+					i = -1;
+			} else if(ary[i] !== undefined){
+					b.push(ary[i]);
+			}
+		}
+		this.bin = b;
+	},
+	assignRegister: function(){
+		for(var i = 0, iLen = this.bin.length; i < iLen; i++){
+			if(this.bin[i] > 0xff){
+				if(this.virtualIntegerRegisterOffset <= this.bin[i] && this.bin[i] <= this.virtualIntegerRegisterOffset + 0x1f){
+					//R00-R1fは無条件で割り当ててOK
+					this.bin[i] -= this.virtualIntegerRegisterOffset;
+				} else if(this.virtualPointerRegisterOffset <= this.bin[i] && this.bin[i] <= this.virtualPointerRegisterOffset + 0x1f - 1){
+					//P01-P1fは無条件で割り当ててOK
+					this.bin[i] -= this.virtualPointerRegisterOffset;
+					this.bin[i] += 1;
+				} else{
+					console.log("Sorry, but no more register.");
+				}
+			}
+		}
+	},
+	saveBinary: function(){
+		var m = this.env.IOManager;
+		var cl = this.bin;
+		var v = new Uint8Array(this.bin);
+		var d = new Blob([v]);
+		if(d){
+			m.showDownloadLink(d);
+		}
+	},
+	
 }
 
 //
@@ -739,7 +788,7 @@ ELCHNOSCompiler_ExpressionStructure.prototype = {
 		return undefined;
 	},
 	appendInstruction_LB: function(opt, labelID){
-		this.bin.push(0x02, opt);
+		this.bin.push(0x01, opt);
 		this.appendInstruction_UINT32BE(labelID);
 	},
 	appendInstruction_UINT32BE: function(data){
@@ -748,18 +797,38 @@ ELCHNOSCompiler_ExpressionStructure.prototype = {
 		this.bin.push((data >> 8) & 0xFF);
 		this.bin.push(data & 0xFF);
 	},
+	appendInstruction_JMP: function(labelID){
+		//03	reg0	imm32					PLIMM(reg0, imm32);
+		this.bin.push(0x03, 0x3f);
+		this.appendInstruction_UINT32BE(labelID);
+	},
+	appendInstruction_ConditionalJMP: function(cndReg, labelID){
+		//04	reg0R									CND(reg0R);
+		this.bin.push(0x04, cndReg);
+		//03	reg0	imm32					PLIMM(reg0, imm32);
+		this.bin.push(0x03, 0x3f);
+		this.appendInstruction_UINT32BE(labelID);
+	},
+	appendInstruction_LIMM3F: function(data){
+		this.bin.push(0x02, 0x3f);
+		this.appendInstruction_UINT32BE(data);
+	},
 }
 
 var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount){
 	// if(!isPointer && labelID != 0):DATA命令によるデータ(ラベル番号の代わり)
 	// if(isPointer && labelID == 0):ポインタ変数
 	// if(!isPointer && labelID == 0):一般変数
+	// if(isImmediateData):即値(initValue[0]がその値)
 	ELCHNOSCompiler_ExpressionStructure_Variable.base.apply(this, arguments);
 	this.bits = 0;
 	//配列でなければ0が入る
 	this.length = 0;
 	this.isSigned = false;
 	this.isPointer = false;
+	this.isImmediateData = false;
+	//ポインタタイプはcreateBinary実行時に決定される
+	this.pointerType = undefined;
 	this.identifier = null;
 	this.initValue = new Array();
 	//引数として渡されるものであれば、引数の左から数えて何番目かが入る。
@@ -772,21 +841,20 @@ var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount)
 	createBinary: function(){
 		//配列であればデータ命令のバイナリを作成して返す。
 		if(this.length > 0){
+			this.assignPointerType();
 			//LB(opt:0x1, 0x0);
 			this.labelID = this.compiler.allocateLabelID();
 			this.appendInstruction_LB(0x01, this.labelID);
 			//34	typ32	len32	data...	
 			this.bin.push(0x34);
-			if(this.bits == 8 && this.isSigned == false){
-				//T_UINT8		:0x03,
+			//typ32
+			if(this.pointerType == this.T_UINT8){
 				this.bin.push(0x00, 0x00, 0x00, 0x03);
-			} else{
-				this.compiler.unexpected = true;
-				return undefined;
 			}
+			//len32
 			this.appendInstruction_UINT32BE(this.length);
-			if(this.bits == 8 && this.isSigned == false){
-				//T_UINT8		:0x03,
+			//data
+			if(this.pointerType == this.T_UINT8){
 				for(var i = 0, iLen = this.initValue.length; i < iLen; i++){
 					this.bin.push(this.initValue[i] & 0xFF);
 				}
@@ -801,16 +869,79 @@ var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount)
 			}
 			return this.bin;
 		} else{
+			//レジスタ変数であれば、スコープに入ったときにレジスタ番号が割り振られるので、今は何もしない
 			return undefined;
 		}
 	},
 	allocateRegisterID: function(owner){
+		//関数スコープに入ったとき呼ばれる
+		this.assignPointerType();
 		if(this.isPointer){
 			this.registerID = this.compiler.allocatePointerRegister(owner);
 		} else{
 			this.registerID = this.compiler.allocateIntegerRegister(owner);
 		}
-	}
+	},
+	assignPointerType: function(){
+		//ポインタタイプ決定
+		if(this.length > 0 || this.isPointer){
+			if(this.bits == 8 && this.isSigned == false){
+				//T_UINT8		:0x03,
+				this.pointerType = this.T_UINT8;
+			} else{
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+				return undefined;
+			}
+		}
+	},
+	copyFrom: function(src){
+		//自分のidentifierと型は保持したまま、その指す内容をsrcと等価にする。
+		//srcにはこのクラスのインスタンス・レジスタ文字列・即値が指定できる
+		if(src instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
+			//このクラス
+			if(!src.isPointer && src.labelID == 0){
+				// if(!isPointer && labelID == 0):一般変数
+				this.bits = src.bits;
+				this.isSigned = src.isSigned;
+				this.isPointer = false;
+				this.isImmediateData = false;
+				this.labelID = 0;
+				this.registerID = src.registerID;
+			} else{
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			}
+		} else if(!isNaN(src)){
+			//即値
+			src = parseInt(src);
+			this.bits = 0;
+			//配列でなければ0が入る
+			this.isPointer = false;
+			this.isImmediateData = true;
+			//ポインタタイプはcreateBinary実行時に決定される
+			this.initValue = [src];
+			this.labelID = 0;
+			this.registerID = 0xff;
+		} else if(typeof src == "string"){
+			src = src.toLowerCase();
+			if(src.indexOf("r") == 0){
+				//整数レジスタ名
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			} else if(src.indexOf("p") == 0){
+				//ポインタレジスタ名
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			} else{
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			}
+		} else{
+			console.log("unexpected.");
+			this.compiler.unexpected = true;
+		}
+	},
 });
 
 var ELCHNOSCompiler_ExpressionStructure_Function = function(compiler, lineCount){
@@ -825,6 +956,7 @@ var ELCHNOSCompiler_ExpressionStructure_Function = function(compiler, lineCount)
 			//インライン関数はその場で展開されるのでバイナリはここでは生成しない
 			return undefined;
 		} else{
+			//レジスタ退避のことはまだ考えてない(実質inline)
 			//optを変更できるようにするべき(grobal指定)
 			//LB(opt:0x0, this.labelID);
 			
@@ -852,6 +984,47 @@ var ELCHNOSCompiler_ExpressionStructure_Function = function(compiler, lineCount)
 			return this.bin;
 		}
 	},
+	createBinary_Inline: function(argStack){
+		//argStackは引数が右から詰まったリスト(popしていくと順番通り)
+		var argCount = 0;
+		if(this.isInline){
+			//内部
+			for(var i = 0, iLen = this.structure.length; i < iLen; i++){
+				if(this.structure[i] instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
+					if(this.structure[i].argumentIndex != -1){
+						//インライン引数展開
+						var o = argStack.pop();
+						if(o !== undefined && argCount == this.structure[i].argumentIndex){
+							argCount++;
+							this.structure[i].copyFrom(o);
+						} else{
+							console.log("unexpected.");
+							this.compiler.unexpected = true;
+						}
+					} else{
+						//通常変数初期化
+						this.structure[i].allocateRegisterID(this);
+					}
+				} else{
+					var b = this.structure[i].createBinary();
+					if(b !== undefined){
+						this.bin.push(b);
+					}
+				}
+				if(this.compiler.unexpected){
+					if(!this.compiler.errLine){
+						this.compiler.errLine = this.structure[i].lineCount;
+					}
+					console.log(this);
+					return undefined;
+				}
+			}
+			this.compiler.freeAllRegisterOfOwner(this);
+			return this.bin;
+		} else{
+			return undefined;
+		}
+	},
 });
 
 var ELCHNOSCompiler_ExpressionStructure_Loop_for = function(compiler, lineCount){
@@ -862,15 +1035,25 @@ var ELCHNOSCompiler_ExpressionStructure_Loop_for = function(compiler, lineCount)
 	this.incrementalExpression = null;
 	this.loopLabelID = 0;
 	this.endLabelID = 0;
+	this.passLabelID = 0;
 }.extend(ELCHNOSCompiler_ExpressionStructure, {
 	createBinary: function(){
 		//initializer
 		//loopLabelID:
-		//conditonalExpression-?>endLabelID
+		//conditonalExpression
+		//-?>passLabelID
+		//->endLabelID
+		//passLabelID:
 		//実行部分
 		//(break->endLabelID)
-		//incrementalExpression->loopLabelID
+		//incrementalExpression
+		//->loopLabelID
 		//endLabelID:
+		
+		this.loopLabelID = this.compiler.allocateLabelID();
+		this.endLabelID = this.compiler.allocateLabelID();
+		//少し手抜き
+		this.passLabelID = this.compiler.allocateLabelID();
 		
 		//initializer
 		this.bin.push(this.initializer.createBinary());
@@ -878,10 +1061,49 @@ var ELCHNOSCompiler_ExpressionStructure_Loop_for = function(compiler, lineCount)
 			return this.bin;
 		}
 		//loopLabelID:
-		this.loopLabelID = this.compiler.allocateLabelID();
 		this.appendInstruction_LB(0x00, this.loopLabelID);
-		
 		//conditonalExpression
+		//本当はR3fを使いたいけど少し手抜き
+		this.bin.push(this.conditonalExpression.createBinary());
+		if(this.compiler.unexpected){
+			return this.bin;
+		}
+		//-?>passLabelID
+		this.appendInstruction_ConditionalJMP(this.conditonalExpression.getRegisterIDAsIntegerRegister(this.conditonalExpression.dataStack[0]), this.passLabelID);
+		//->endLabelID
+		this.appendInstruction_JMP(this.endLabelID);
+		//passLabelID:
+		this.appendInstruction_LB(0x00, this.passLabelID);
+		//実行部分
+		for(var i = 0, iLen = this.structure.length; i < iLen; i++){
+			if(this.structure[i] instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
+				//ブロックスコープでの変数宣言は未実装
+				//this.structure[i].allocateRegisterID(this);
+				this.compiler.unexpected = true;
+			} else{
+				var b = this.structure[i].createBinary();
+				if(b !== undefined){
+					this.bin.push(b);
+				}
+			}
+			if(this.compiler.unexpected){
+				if(!this.compiler.errLine){
+					this.compiler.errLine = this.structure[i].lineCount;
+				}
+				console.log(this);
+				return undefined;
+			}
+		}
+		
+		//incrementalExpression
+		this.bin.push(this.incrementalExpression.createBinary());
+		if(this.compiler.unexpected){
+			return this.bin;
+		}
+		//->loopLabelID
+		this.appendInstruction_JMP(this.loopLabelID);
+		//endLabelID:
+		this.appendInstruction_LB(0x00, this.endLabelID);
 		
 		return this.bin;
 	},
@@ -892,7 +1114,57 @@ var ELCHNOSCompiler_ExpressionStructure_if = function(compiler, lineCount){
 	this.structure = new Array();
 	this.conditonalExpression = null;
 }.extend(ELCHNOSCompiler_ExpressionStructure, {
+	createBinary: function(){
+		//conditonalExpression
+		//-?>passLabelID
+		//->endLabelID
+		//passLabelID:
+		//実行部分
+		//(break->endLabelID)
+		//endLabelID:
+		
+		this.endLabelID = this.compiler.allocateLabelID();
+		//少し手抜き
+		this.passLabelID = this.compiler.allocateLabelID();
+		
+		//conditonalExpression
+		//本当はR3fを使いたいけど少し手抜き
+		this.bin.push(this.conditonalExpression.createBinary());
+		if(this.compiler.unexpected){
+			return this.bin;
+		}
+		//-?>passLabelID
+		this.appendInstruction_ConditionalJMP(this.conditonalExpression.getRegisterIDAsIntegerRegister(this.conditonalExpression.dataStack[0]), this.passLabelID);
+		//->endLabelID
+		this.appendInstruction_JMP(this.endLabelID);
+		//passLabelID:
+		this.appendInstruction_LB(0x00, this.passLabelID);
+		//実行部分
+		for(var i = 0, iLen = this.structure.length; i < iLen; i++){
+			if(this.structure[i] instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
+				//ブロックスコープでの変数宣言は未実装
+				//this.structure[i].allocateRegisterID(this);
+				this.compiler.unexpected = true;
+			} else{
+				var b = this.structure[i].createBinary();
+				if(b !== undefined){
+					this.bin.push(b);
+				}
+			}
+			if(this.compiler.unexpected){
+				if(!this.compiler.errLine){
+					this.compiler.errLine = this.structure[i].lineCount;
+				}
+				console.log(this);
+				return undefined;
+			}
+		}
 
+		//endLabelID:
+		this.appendInstruction_LB(0x00, this.endLabelID);
+		
+		return this.bin;
+	},
 });
 
 var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCount){
@@ -901,13 +1173,21 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 	this.evalOperatorStack = new Array();
 	this.lastOperatorPriority = ELCHNOSCompiler_ExpressionStructure_Expression.prototype.operatorPriorityList.length;
 	this.startBracketIndexStack = new Array();
+	this.mode = ELCHNOSCompiler_ExpressionStructure_Expression.prototype.Mode_Operand;
+	this.shouldPushOperatorAfterNextOperand = false;
+	//
+	this.tmpRegs = new Array();
+	this.dataStack = new Array();
 }.extend(ELCHNOSCompiler_ExpressionStructure, {
 	//drawLine(1 + 4, x0, y0, x1, y1, col);
 	//->	drawLine 1 4 + x0 y0 x1 y1 col ()
 	//f(g(1 + 4 * (2 - 3)), 4 * 2 + 1);
 	//->	f g 1 4 2 3 - * + () 4 2 * 1 + ()
-	
+	Mode_Operand: 0,
+	Mode_Operator: 1,
 	operatorPriorityList: [
+		"++",
+		"--",
 		"/",
 		"*",
 		"-",
@@ -921,11 +1201,41 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 		//オペランドを追加する
 		//数値ならば数値自体もしくは等価な文字列
 		//オブジェクトであればそのオブジェクトのインスタンスを渡す
+		//モード確認
+		if(this.mode != this.Mode_Operand){
+			console.log("unexpected.");
+			this.compiler.unexpected = true;
+			return;
+		}
+		this.mode = this.Mode_Operator;
+		
 		this.evalStack.push(identifier);
+		
+		if(this.shouldPushOperatorAfterNextOperand){
+			this.shouldPushOperatorAfterNextOperand = false;
+			var o = this.evalOperatorStack.pop();
+			if(o == "-" && this.getImmediateData(identifier) !== undefined){
+				//定数のマイナスだったので計算して値として積み直す
+				o = -this.getImmediateData(this.evalStack.pop());
+			}
+			this.evalStack.push(o);
+		}
 	},
 	pushOperator: function(operator){
 		//演算子を追加する。
 		//演算子は文字列で渡す
+		//モード確認
+		if(this.mode != this.Mode_Operator){
+			if(operator == "*" || operator == "-"){
+				this.shouldPushOperatorAfterNextOperand = true;
+			} else{
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+				return;
+			}
+		}
+		this.mode = this.Mode_Operand;
+
 		if(operator == "("){
 			//開き括弧のevalOperatorStack内でのIndexを記憶
 			if(this.evalStack[this.evalStack.length - 1] instanceof ELCHNOSCompiler_ExpressionStructure_Function){
@@ -1065,6 +1375,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 			s == ")"||
 			s == "," ||
 			s == "()" ||
+			s == "<=" ||
 			false
 		);
 	},
@@ -1072,62 +1383,328 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 		s = s.toLowerCase();
 		return (s.indexOf("r") == 0 || s.indexOf("p") == 0) && !isNaN(s.substring(1));
 	},
-	createBinary: function(){
+	createBinary: function(destRegID){
+		//式を計算します。代入式の場合は代入を行います。
+		//destRegIDは、条件式などの結果を一時的に保存するために整数レジスタ番号(数値)を指定することができます。
+		//指定された場合は最後の計算結果をdestRegIDに格納する処理を行います。
+		//計算結果とは、代入式の場合は計算後の右辺、評価式の場合はその評価値となります。
 		//まずスタックを処理しやすいように詰め直す
 		var stack = new Array();
-		var dataStack = new Array();
+		var fArgStack = new Array();
+		var f = null;
 		var op00;
 		var op01;
 		var op02;
+		var opcode = 0xff;
 		//残っている演算子から
 		for(var i = 0, iLen = this.evalOperatorStack.length; i < iLen; i++){
-			stack.push(this.evalOperatorStack.pop());
+			this.evalStack.push(this.evalOperatorStack.pop());
 		}
 		for(var i = 0, iLen = this.evalStack.length; i < iLen; i++){
 			stack.push(this.evalStack.pop());
 		}
-		console.log(stack);
+		console.log(stack.join(","));
 		for(var i = 0, iLen = stack.length; i < iLen; i++){
 			var o = stack.pop();
 			if(this.isOperator(o)){
 				if(o == "="){
 					//2:代入
-					op01 = dataStack.pop();
-					op00 = dataStack.pop();
-					if(op00 instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
-						//変数への代入
-						if(op00.isPointer && op00.labelID == 0){
-							//ポインタレジスタに対する代入
-							if(op01 instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
-								//変数からの代入
-								if(!op01.isPointer && op01.labelID != 0){
-									//ラベル番号からの代入
-									//PLIMM
-									//03	reg0	imm32
-									this.bin.push(0x03, op00.registerID);
-									this.appendInstruction_UINT32BE(this.labelID);
-								} else{
-									this.compiler.unexpected = true;
-									break;
-								}
-							} else{
-								this.compiler.unexpected = true;
-								break;
-							}
-						} else{
+					op01 = this.dataStack.pop();
+					op00 = this.dataStack.pop();
+					if(op00 === undefined || op01 === undefined){
+						console.log("unexpected.");
+						this.compiler.unexpected = true;
+						break;
+					}
+					this.createBinary_substitute(op00, op01);
+				} else if(	o == "!=" || o == "-" || o == "<=" || o == "+"){
+					//2:比較,二項整数演算子
+					//21	reg0	reg1	reg2							CMPNE(reg0, reg1, reg2);
+					op02 = this.dataStack.pop();
+					op01 = this.dataStack.pop();
+					if(op01 === undefined || op02 === undefined){
+						console.log("unexpected.");
+						this.compiler.unexpected = true;
+						break;
+					}
+					if(o == "!="){
+						opcode = 0x21;
+					} else if(o == "-"){
+						opcode = 0x15;
+					} else if(o == "<="){
+						opcode = 0x24;
+					} else if(o == "+"){
+						opcode = 0x14;
+					} else{
+						console.log("unexpected.");
+						this.compiler.unexpected = true;
+						break;
+					}
+					if(opcode != 0xff){
+						this.createBinary_TernaryIntegerOperation(op01, op02, opcode);
+					}
+				} else if(o == "*"){
+					//乗算またはポインタアクセス
+					op02 = this.dataStack.pop();
+					if(this.getRegisterIDAsPointerRegister(op02) !== undefined){
+						//ポインタアクセス
+						this.createBinary_readPointer(op02);
+					} else{
+						//乗算
+						console.log("unexpected.");
+						this.compiler.unexpected = true;
+					}
+				} else if(o == "++"){
+					//increment
+					op00 = this.dataStack.pop();
+					if(op00 === undefined){
+						console.log("unexpected.");
+						this.compiler.unexpected = true;
+						break;
+					}
+					this.createBinary_increment(op00);
+				} else if(o == "()"){
+					//関数呼び出し
+					for(;;){
+						op00 = this.dataStack.pop();
+						if(op00 instanceof ELCHNOSCompiler_ExpressionStructure_Function){
+							f = op00;
+							break;
+						} else if(op00 === undefined){
+							console.log("unexpected.");
 							this.compiler.unexpected = true;
 							break;
+						} else{
+							fArgStack.push(op00);
 						}
 					}
+					if(f.isInline){
+						//インライン関数の直接展開
+						this.bin.push(f.createBinary_Inline(fArgStack));
+						//これはダミー
+						this.dataStack.push("r30");
+					} else{
+						console.log("unexpected.");
+						this.compiler.unexpected = true;
+					}
 				} else{
+					console.log("unexpected.");
 					this.compiler.unexpected = true;
 					break;
 				}
 			} else{
-				dataStack.push(o);
+				this.dataStack.push(o);
 			}
 		}
+		if(this.dataStack.length == 1){
+			//最終的には1になるはず
+			if(destRegID !== undefined){
+				//最終代入先が決まっている
+				var lastData = this.dataStack.pop();
+				//レジスタ利用効率化はあとまわし
+				//if(this.tmpRegs.isIncluded(lastReg)){
+				//}
+				this.createBinary_substitute("r" + destRegID.toString(16), lastData);
+			}
+		} else{
+			console.log("unexpected.");
+			this.compiler.unexpected = true;
+		}
+		this.compiler.freeAllRegisterOfOwner(this);
 		return this.bin;
+	},
+	createBinary_substitute: function(dest, src){
+		var destValue;
+		var srcValue;
+		
+		destValue = this.getRegisterIDAsPointerRegister(dest);
+		if(destValue !== undefined){
+			//destはポインタレジスタ
+			srcValue = this.getLabelID(src);
+			if(srcValue !== undefined){
+				//srcはラベル
+				//ラベル番号からの代入
+				//PLIMM
+				//03	reg0	imm32
+				this.bin.push(0x03, destValue);
+				this.appendInstruction_UINT32BE(srcValue);
+			} else{
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			}
+		} else{
+			destValue = this.getRegisterIDAsIntegerRegister(dest);
+			if(destValue !== undefined){
+				//destは整数レジスタ
+				srcValue = this.getImmediateData(src);
+				if(srcValue !== undefined){
+					//srcは即値
+					//即値代入
+					//02	reg0	imm32					LIMM(reg0, imm32);
+					this.bin.push(0x02, destValue);
+					this.appendInstruction_UINT32BE(srcValue);
+				} else{
+					srcValue = this.getRegisterIDAsIntegerRegister(src);
+					if(srcValue !== undefined){
+						//srcは整数レジスタ
+						//10	reg0	reg1	FF							CP(reg0, reg1);
+						this.bin.push(0x10, destValue, srcValue, 0xff);
+					} else{
+						console.log("unexpected.");
+						this.compiler.unexpected = true;
+					}
+				}
+			} else{
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			}
+		}
+		this.dataStack.push(dest);
+	},
+	createBinary_TernaryIntegerOperation: function(src0, src1, opcode){
+		//destは自動的に割り当てる
+		var destValue;
+		var src0Value;
+		var src1Value;
+		
+		//まず引数がそれぞれ即値か確認する
+		src0Value = this.getImmediateData(src0);
+		src1Value = this.getImmediateData(src1);
+		if(src0Value !== undefined && src1Value !== undefined){
+			//両方とも即値だったので計算しておしまい
+			switch(opcode){
+				case 0x14:
+					destValue = src0Value + src1Value;
+					break;
+				default:
+					console.log("unexpected.");
+					this.compiler.unexpected = true;
+					return;
+			}
+			this.dataStack.push(destValue);
+			return;
+		}
+		//即値だったものをR3F展開（どちらかのみ実行される）
+		//もしくはレジスタ番号を取得
+		if(src0Value !== undefined){
+			this.appendInstruction_LIMM3F(src0Value);
+			src0Value = 0x3f;
+		} else{
+			src0Value = this.getRegisterIDAsIntegerRegister(src0);
+			if(src0Value === undefined){
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			}
+		}
+		if(src1Value !== undefined){
+			this.appendInstruction_LIMM3F(src1Value);
+			src1Value = 0x3f;
+		} else{
+			src1Value = this.getRegisterIDAsIntegerRegister(src1);
+			if(src1Value === undefined){
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			}
+		}
+		//格納先のレジスタをひとつもらう
+		destValue = this.compiler.allocateIntegerRegister(this);
+		this.tmpRegs.push(destValue);
+		//この関数内ではdestは整数レジスタ番号だが、dataStackに積む時は文字列として、頭にrをつけるのを忘れないこと。
+		//命令発行
+		//reg0	reg1	reg2							CMPcc(reg0, reg1, reg2);
+		this.bin.push(opcode, destValue, src0Value, src1Value);
+		
+		this.dataStack.push("r" + destValue.toString(16));
+	},
+	createBinary_readPointer: function(src0){
+		//destは自動的に割り当てる
+		var destValue;
+		var src0Value;
+		
+		destValue = this.compiler.allocateIntegerRegister(this);
+		this.tmpRegs.push(destValue);
+		//この関数内ではdestValueは整数レジスタ番号だが、dataStackに積む時は文字列として、頭にrをつけるのを忘れないこと。
+
+		src0Value = this.getRegisterIDAsPointerRegister(src0);
+		if(src0Value !== undefined){
+			//src0はポインタレジスタ
+			//08	reg0R	typ32	reg1P	00			LMEM(reg0R, typ32, reg1P, 0);
+			this.bin.push(0x08, destValue);
+			this.appendInstruction_UINT32BE(src0.pointerType);
+			this.bin.push(src0Value, 0x00);
+		} else{
+			console.log("unexpected.");
+			this.compiler.unexpected = true;
+		}
+		this.dataStack.push("r" + destValue.toString(16));
+	},
+	createBinary_increment: function(dest){
+		var destValue;
+		
+		destValue = this.getRegisterIDAsPointerRegister(dest);
+		if(destValue !== undefined){
+			//destはポインタレジスタ
+			//即値加算
+			this.appendInstruction_LIMM3F(0x01);
+			//0E	reg0P	typ32	reg1P	reg2R			PADD(reg0P, typ32, reg1P, reg2R);
+			this.bin.push(0x0e, destValue);
+			this.appendInstruction_UINT32BE(dest.pointerType);
+			this.bin.push(destValue);
+			this.bin.push(0x3f);
+		} else{
+			destValue = this.getRegisterIDAsIntegerRegister(dest);
+			if(destValue !== undefined){
+				//即値加算
+				this.appendInstruction_LIMM3F(0x01);
+				//14	reg0	reg1	reg2							ADD(reg0, reg1, reg2);	reg0 = (reg1 + reg2);
+				this.bin.push(0x14, destValue, destValue, 0x3f);
+			} else{
+				console.log("unexpected.");
+				this.compiler.unexpected = true;
+			}
+		}
+		this.dataStack.push(dest);
+	},
+	getRegisterIDAsIntegerRegister: function(o){
+		//戻り値は整数レジスタ番号（数値）
+		//整数レジスタでない場合はundefinedを返す。
+		if(o instanceof ELCHNOSCompiler_ExpressionStructure_Variable && !o.isPointer && o.labelID == 0){
+			return o.registerID;
+		}
+		if((typeof o == "string") && o.toLowerCase().indexOf("r") == 0){
+			return parseInt(o.substring(1), 16);
+		}
+		return undefined;
+	},
+	getLabelID: function(o){
+		//戻り値はラベル番号（数値）
+		//ラベル番号でない場合はundefinedを返す。
+		if(o instanceof ELCHNOSCompiler_ExpressionStructure_Variable && !o.isPointer && o.labelID != 0){
+			return o.labelID;
+		}
+		return undefined;
+	},
+	getRegisterIDAsPointerRegister: function(o){
+		//戻り値はポインタレジスタ番号（数値）
+		//ポインタレジスタでない場合はundefinedを返す。
+		if(o instanceof ELCHNOSCompiler_ExpressionStructure_Variable && o.isPointer && o.labelID == 0){
+			return o.registerID;
+		}
+		if((typeof o == "string") && o.toLowerCase().indexOf("p") == 0){
+			return parseInt(o.substring(1), 16);
+		}
+		return undefined;
+	},
+	getImmediateData: function(o){
+		//戻り値は即値（数値）
+		//即値でない場合はundefinedを返す。
+		if(!isNaN(o)){
+			return parseInt(o);
+		}
+		if(o instanceof ELCHNOSCompiler_ExpressionStructure_Variable && o.isImmediateData){
+			return o.initValue[0];
+		}
+		return undefined;
 	},
 });
 
@@ -1135,5 +1712,10 @@ var ELCHNOSCompiler_ExpressionStructure_OSECPUBinary = function(compiler, lineCo
 	ELCHNOSCompiler_ExpressionStructure_OSECPUBinary.base.apply(this, arguments);
 	this.isCompiled = false;
 }.extend(ELCHNOSCompiler_ExpressionStructure, {
-	
+	createBinary: function(){
+		if(!this.isCompiled){
+			this.compiler.unexpected = true;
+		}
+		return this.bin;
+	},
 });

@@ -135,7 +135,7 @@ Array.prototype.splitByArray = function(separatorList){
 	return retArray;
 }
 
-Array.prototype.logAsHexByte = function(separatorList){
+Array.prototype.logAsHexByte = function(){
 	//十六進バイト列としてデバッグ出力する。
 	var ds = "";
 	for(var i = 0, iLen = this.length; i < iLen; i++){

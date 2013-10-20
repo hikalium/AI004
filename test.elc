@@ -38,7 +38,7 @@ procedure main()
 		for (j = -8; j != 8; j++) {
 			x1 = *q;
 			q++;
-			x1 = *q;
+			y1 = *q;
 			q++;
 			col = i - j;
 			if (col <= 0){
