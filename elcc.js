@@ -5,12 +5,42 @@
 //構造解析・式の逆ポーランド化
 //中間バイナリ化
 
+function ELCHNOSCompiler_CompileException(errno, infoArray, lineCount){
+	this.errno = errno;
+	this.infoArray = infoArray;
+	this.lineCount = lineCount;
+}
+ELCHNOSCompiler_CompileException.prototype = {
+	errorMessageList: [
+		"Trap.",
+		"Incompatible value attribute.",
+		"Unexpected identifier.",
+		"Unknown assembly language type.",
+		"Invalid expression of OSECPU Binary.",
+		"Binary translation error.",
+	],
+	getMessageString: function(){
+		var s = "";
+		if(!isNaN(this.lineCount)){
+			s += this.lineCount + ":";
+		}
+		s += "Error" + this.errno.toString().toUpperCase();
+		if(this.errno < 0 || this.errorMessageList.length <= this.errno){
+			s += ":Unknown\n";
+		} else{
+			s += ":" + this.errorMessageList[this.errno] + "\n";
+		}
+		if(this.infoArray){
+			s += "  >" + this.infoArray.toString() + "\n";
+		}
+		return s;
+	},
+}
+// throw new ELCHNOSCompiler_CompileException(5, [""], this.lineCount);
+
+
 function ELCHNOSCompiler(env){
 	this.env = env;
-	
-	this.unexpected = false;
-	this.errno = 0;
-	this.errLine = 0;
 	
 	this.line = null;
 	this.separated = null;
@@ -84,7 +114,6 @@ ELCHNOSCompiler.prototype = {
 		console.log(this.separated);
 		
 		//メイン処理
-		this.errno = 2;
 		var currentExpression = null;
 		var numValSignFlag = 0;
 		var numValBits = 0;
@@ -117,234 +146,220 @@ ELCHNOSCompiler.prototype = {
 			//
 			//70: OSECPUアセンブリ直接記述モード
 			//71: OSECPUアセンブリ評価式の内容または終端記号
-		for(var i = 0, iLen = this.separated.length; i < iLen; i++){
-			var s = this.separated[i].toLowerCase();
-			
-			if(s == "\n"){
-				//デバッグ用行数カウント
-				lineCount++;
-				continue;
-			//予約語
-			} else if(s == "signed" && (mode == 0 || mode == 10)){
-				//符号あり
-				if(numValSignFlag == 0){
+		try{
+			for(var i = 0, iLen = this.separated.length; i < iLen; i++){
+				var s = this.separated[i].toLowerCase();
+				
+				if(s == "\n"){
+					//デバッグ用行数カウント
+					lineCount++;
+					continue;
+				//予約語
+				} else if(s == "signed" && (mode == 0 || mode == 10)){
+					//符号あり
+					if(numValSignFlag != 0){
+						throw new ELCHNOSCompiler_CompileException(1, [s], lineCount);
+					}
 					numValSignFlag |= this.Flag_Sign_Signed;
 					mode = 10;
-				} else{
-					this.unexpected = true;
-					this.errno = 1;
-				}
-			} else if(s == "unsigned" && (mode == 0 || mode == 10)){
-				//符号なし
-				if(numValSignFlag == 0){
+				} else if(s == "unsigned" && (mode == 0 || mode == 10)){
+					//符号なし
+					if(numValSignFlag != 0){
+						throw new ELCHNOSCompiler_CompileException(1, [s], lineCount);
+					}
 					numValSignFlag |= this.Flag_Sign_Unsigned;
 					mode = 10;
-				} else{
-					this.unexpected = true;
-					this.errno = 1;
-				}
-			} else if(s == "char"  && (mode == 0 || mode == 10 || mode == 11 || mode == 52)){
-				//char 8bit符号あり
-				numValBits = 8;
-				if(mode == 0 || mode == 10 || mode == 11){
-					mode = 11;
-				}
-			} else if(s == "int" && (mode == 0 || mode == 10 || mode == 11 || mode == 52)){
-				//int 32bit符号あり
-				numValBits = 32;
-				if(mode == 0 || mode == 10 || mode == 11){
-					mode = 11;
-				}
-			} else if(s == ";" && (mode == 0 || mode == 12 || mode == 13 || mode == 19 || mode == 60 || mode == 71)){
-				if(mode == 12 || mode == 13 || mode == 19){
-					//変数または定数の定義終了
-					numValBits = 0;
-					numValSignFlag = 0;
-					//console.log(currentExpression);
-					currentExpression = null;
-					mode = 0;
-				} else if(mode == 60 || mode == 71){
-					//評価式終端
-					//console.log(currentExpression);
-					currentExpression = null;
-					if(mode == 60){
-						mode = 0;
-					} else if(mode == 71){
-						mode = 70;
-					}
-				} else{
-					this.unexpected = true;
-				}
-			} else if(s == "=" && (mode == 13)){
-				if(mode == 13){
-					//変数・定数初期化式開始
-					mode = 16;
-				} else{
-					this.unexpected = true;
-				}
-			} else if(s == "*" && (mode == 11)){
-				//ポインタ属性の付加
-				pointerCount++;
-			} else if(s == "," && (mode == 18 || mode == 12 || mode == 13 || mode == 53)){
-				if(mode == 18){
-					//初期化式の区切り
-					mode = 17;
-				} else if(mode == 12 || mode == 13 || mode == 53){
-					//連続した変数宣言の区切り
-					if(mode == 12 || mode == 13){
+				} else if(s == "char"  && (mode == 0 || mode == 10 || mode == 11 || mode == 52)){
+					//char 8bit符号あり
+					numValBits = 8;
+					if(mode == 0 || mode == 10 || mode == 11){
 						mode = 11;
-					} else if(mode == 53){
-						mode = 52;
 					}
+				} else if(s == "int" && (mode == 0 || mode == 10 || mode == 11 || mode == 52)){
+					//int 32bit符号あり
+					numValBits = 32;
+					if(mode == 0 || mode == 10 || mode == 11){
+						mode = 11;
+					}
+				} else if(s == ";" && (mode == 0 || mode == 12 || mode == 13 || mode == 19 || mode == 60 || mode == 71)){
+					if(mode == 12 || mode == 13 || mode == 19){
+						//変数または定数の定義終了
+						numValBits = 0;
+						numValSignFlag = 0;
+						//console.log(currentExpression);
+						currentExpression = null;
+						mode = 0;
+					} else if(mode == 60 || mode == 71){
+						//評価式終端
+						//console.log(currentExpression);
+						currentExpression = null;
+						if(mode == 60){
+							mode = 0;
+						} else if(mode == 71){
+							mode = 70;
+						}
+					} else{
+						throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
+					}
+				} else if(s == "=" && (mode == 13)){
+					if(mode == 13){
+						//変数・定数初期化式開始
+						mode = 16;
+					} else{
+						throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
+					}
+				} else if(s == "*" && (mode == 11)){
+					//ポインタ属性の付加
+					pointerCount++;
+				} else if(s == "," && (mode == 18 || mode == 12 || mode == 13 || mode == 53)){
+					if(mode == 18){
+						//初期化式の区切り
+						mode = 17;
+					} else if(mode == 12 || mode == 13 || mode == 53){
+						//連続した変数宣言の区切り
+						if(mode == 12 || mode == 13){
+							mode = 11;
+						} else if(mode == 53){
+							mode = 52;
+						}
+						//console.log(currentExpression);
+						currentExpression = null;
+					} else{
+						throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
+					}
+				//括弧系
+				} else if(s == "[" && (mode == 12)){
+					//配列の長さの定義開始
+					mode = 14;
+				} else if(s == "]" && (mode == 15)){
+					//配列の長さの定義終了
+					mode = 13;
+				} else if(s == "{" && (mode == 16 || mode == 54)){
+					if(mode == 16){
+						//初期化式の開始括弧
+						mode = 17;
+					} else if(mode == 54){
+						//54: 関数内部開始括弧
+						currentExpression = null;
+						mode = 0;
+					} else{
+						throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
+					}
+				} else if(s == "}" && (mode == 17 || mode == 18 || mode == 0)){
+					if(mode == 17 || mode == 18){
+						//初期化式の終了括弧
+						mode = 19;
+					} else if(mode == 0){
+						if(this.structureStack.length > 0){
+							//console.log(this.currentStructure);
+							this.restoreCurrentStructure();
+						} else{
+							throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
+						}
+					}
+				} else if(s == "(" && (mode == 51)){
+					//51: 引数開始括弧
+					mode = 52;
+				} else if(s == ")" && (mode == 52 || mode == 53)){
+					//52: 引数or引数終了括弧
+					//53: 引数区切りor引数終了括弧
 					//console.log(currentExpression);
 					currentExpression = null;
-				} else{
-					this.unexpected = true;
-				}
-			//括弧系
-			} else if(s == "[" && (mode == 12)){
-				//配列の長さの定義開始
-				mode = 14;
-			} else if(s == "]" && (mode == 15)){
-				//配列の長さの定義終了
-				mode = 13;
-			} else if(s == "{" && (mode == 16 || mode == 54)){
-				if(mode == 16){
-					//初期化式の開始括弧
-					mode = 17;
-				} else if(mode == 54){
-					//54: 関数内部開始括弧
-					currentExpression = null;
-					mode = 0;
-				} else{
-					this.unexpected = true;
-				}
-			} else if(s == "}" && (mode == 17 || mode == 18 || mode == 0)){
-				if(mode == 17 || mode == 18){
-					//初期化式の終了括弧
-					mode = 19;
-				} else if(mode == 0){
-					if(this.structureStack.length > 0){
-						//console.log(this.currentStructure);
-						this.restoreCurrentStructure();
-					} else{
-						this.unexpected = true;
+					for(var j = 0, jLen = this.currentStructure.length; j < jLen; j++){
+						//引数番号を付与
+						this.currentStructure[j].argumentIndex = j;
 					}
-				}
-			} else if(s == "(" && (mode == 51)){
-				//51: 引数開始括弧
-				mode = 52;
-			} else if(s == ")" && (mode == 52 || mode == 53)){
-				//52: 引数or引数終了括弧
-				//53: 引数区切りor引数終了括弧
-				//console.log(currentExpression);
-				currentExpression = null;
-				for(var j = 0, jLen = this.currentStructure.length; j < jLen; j++){
-					//引数番号を付与
-					this.currentStructure[j].argumentIndex = j;
-				}
-				mode = 54;
-			} else if(s == "@asm" && (mode == 0)){
-				i++;
-				s = this.separated[i].toLowerCase();
-				if(s == "osecpu"){
-					mode = 70;
-				} else{
-					this.unexpected = true;
-					this.errno = 3;
-				}
-			} else if(s == "@end" && (mode == 70)){
-				mode = 0;
-			//リストにない予約語
-			} else if(s == "procedure" && (mode == 0)){
-				//関数宣言
-				var f = new ELCHNOSCompiler_ExpressionStructure_Function(this, lineCount);
-				this.currentStructure.push(f);
-				this.changeCurrentStructure(f.structure);
-				currentExpression = f;
-				
-				mode = 50;
-			} else if(s == "inline" && (mode == 50)){
-				currentExpression.isInline = true;
-			} else if(s == "for" && (mode == 0)){
-				//forループ
-				i++;
-				s = this.separated[i];
-				if(s == "("){
-					var f = new ELCHNOSCompiler_ExpressionStructure_Loop_for(this, lineCount);
+					mode = 54;
+				} else if(s == "@asm" && (mode == 0)){
+					i++;
+					s = this.separated[i].toLowerCase();
+					if(s == "osecpu"){
+						mode = 70;
+					} else{
+						throw new ELCHNOSCompiler_CompileException(3, [s], lineCount);
+					}
+				} else if(s == "@end" && (mode == 70)){
+					mode = 0;
+				//リストにない予約語
+				} else if(s == "procedure" && (mode == 0)){
+					//関数宣言
+					var f = new ELCHNOSCompiler_ExpressionStructure_Function(this, lineCount);
 					this.currentStructure.push(f);
 					this.changeCurrentStructure(f.structure);
 					currentExpression = f;
-					//初期化式
-					f.initializer = new ELCHNOSCompiler_ExpressionStructure_Expression(this, lineCount);
-					i = f.initializer.readExpressionToTerminator(i, ";");
-					//条件評価式
-					if(!this.unexpected){
+					
+					mode = 50;
+				} else if(s == "inline" && (mode == 50)){
+					currentExpression.isInline = true;
+				} else if(s == "for" && (mode == 0)){
+					//forループ
+					i++;
+					s = this.separated[i];
+					if(s == "("){
+						var f = new ELCHNOSCompiler_ExpressionStructure_Loop_for(this, lineCount);
+						this.currentStructure.push(f);
+						this.changeCurrentStructure(f.structure);
+						currentExpression = f;
+						//初期化式
+						f.initializer = new ELCHNOSCompiler_ExpressionStructure_Expression(this, lineCount);
+						i = f.initializer.readExpressionToTerminator(i, ";");
+						//条件評価式
 						f.conditonalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this, lineCount);
 						i = f.conditonalExpression.readExpressionToTerminator(i, ";");
-					}
-					//更新式
-					if(!this.unexpected){
+						//更新式
 						f.incrementalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this, lineCount);
 						i = f.incrementalExpression.readExpressionToTerminator(i, ")");
-					}
-					//開始括弧
-					if(!this.unexpected){
+						//開始括弧
 						i++;
 						if(this.separated[i] != "{"){
-							this.unexpected = true;
+							throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
 						}
 						currentExpression = null;
+					} else{
+						throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
 					}
-				} else{
-					this.unexpected = true;
-				}
-			} else if(s == "if" && (mode == 0)){
-				//if文
-				//条件評価式-?>L2
-				//実行部分
-				//(break->L2)
-				//L2:
-				i++;
-				s = this.separated[i];
-				if(s == "("){
-					var f = new ELCHNOSCompiler_ExpressionStructure_if(this, lineCount);
-					this.currentStructure.push(f);
-					this.changeCurrentStructure(f.structure);
-					currentExpression = f;
-					//条件評価式
-					f.conditonalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this, lineCount);
-					i = f.conditonalExpression.readExpressionToTerminator(i, ")");
-					//開始括弧
-					if(!this.unexpected){
+				} else if(s == "if" && (mode == 0)){
+					//if文
+					//条件評価式-?>L2
+					//実行部分
+					//(break->L2)
+					//L2:
+					i++;
+					s = this.separated[i];
+					if(s == "("){
+						var f = new ELCHNOSCompiler_ExpressionStructure_if(this, lineCount);
+						this.currentStructure.push(f);
+						this.changeCurrentStructure(f.structure);
+						currentExpression = f;
+						//条件評価式
+						f.conditonalExpression = new ELCHNOSCompiler_ExpressionStructure_Expression(this, lineCount);
+						i = f.conditonalExpression.readExpressionToTerminator(i, ")");
+						//開始括弧
 						i++;
 						if(this.separated[i] != "{"){
-							this.unexpected = true;
+							throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
 						}
 						currentExpression = null;
+					} else{
+						throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
 					}
-				} else{
-					this.unexpected = true;
-				}
-			//OSECPUアセンブリ
-			} else if(s == "remark" && (mode == 70)){
-				//超手抜き
-				var b = new ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(this, lineCount);
-				this.currentStructure.push(b);
-				//FE	len	...
-				b.bin.push(0xfe);
-				//len
-				i++;
-				s = this.separated[i];
-				if(s.length == 2){
-					var len = parseInt(s, 16);
-					b.bin.push(len);
-				} else{
-					this.unexpected = true;
-					this.errno = 4;
-				}
-				//data
-				if(!this.unexpected){
+				//OSECPUアセンブリ
+				} else if(s == "remark" && (mode == 70)){
+					//超手抜き
+					var b = new ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(this, lineCount);
+					this.currentStructure.push(b);
+					//FE	len	...
+					b.bin.push(0xfe);
+					//len
+					i++;
+					s = this.separated[i];
+					if(s.length == 2){
+						var len = parseInt(s, 16);
+						b.bin.push(len);
+					} else{
+						throw new ELCHNOSCompiler_CompileException(4, [s], lineCount);
+					}
+					//data
 					i++;
 					s = this.separated[i];
 					if(s.length == len * 2){
@@ -352,108 +367,99 @@ ELCHNOSCompiler.prototype = {
 							b.bin.push(parseInt(s.substr(j * 2, 2), 16));
 						}
 					} else{
-						this.unexpected = true;
-						this.errno = 4;
+						throw new ELCHNOSCompiler_CompileException(4, [s], lineCount);
 					}
-				}
-				
-				if(!this.unexpected){
+					//終端
 					i++;
 					if(this.separated[i] != ";"){
-						this.unexpected = true;
+						throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
 					} else{
 						//この命令は定数のみで構成されているのでコンパイル済みとマークする
 						b.isCompiled = true;
 						b = null;
 					}
-				}
-			} else if(s == "call" && (mode == 70)){
-				//超手抜き
-				var b = new ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(this, lineCount);
-				this.currentStructure.push(b);
-				
-				//第二引数が何か確認する
-				i++;
-				s = this.separated[i].toLowerCase();
-				if((s.indexOf("p") == 0) && s.length == 3){
-					//ポインタレジスタをcall
-					//新しいラベル番号をもらう
-					var labelID = this.allocateLabelID();
-					//PLIMM(P30, labelID)
-						//03	reg0	imm32
-					b.bin.push(0x03);
-					b.bin.push(0x30);
-					b.appendInstruction_UINT32BE(labelID);
-					//PCP(P3F, Pxx)
-						//1E	reg0P	reg1P
-					b.bin.push(0x1e);
-					b.bin.push(0x3f);
-					b.bin.push(parseInt(s.substr(1),16));
+				} else if(s == "call" && (mode == 70)){
+					//超手抜き
+					var b = new ELCHNOSCompiler_ExpressionStructure_OSECPUBinary(this, lineCount);
+					this.currentStructure.push(b);
 					
-					b.appendInstruction_LB(0x01, labelID);
-					//[FE] [01] [00]
-					b.bin.push(0xfe);
-					b.bin.push(0x01);
-					b.bin.push(0x00);
-					//終端記号
+					//第二引数が何か確認する
 					i++;
-					if(this.separated[i] != ";"){
-						this.unexpected = true;
+					s = this.separated[i].toLowerCase();
+					if((s.indexOf("p") == 0) && s.length == 3){
+						//ポインタレジスタをcall
+						//新しいラベル番号をもらう
+						var labelID = this.allocateLabelID();
+						//PLIMM(P30, labelID)
+							//03	reg0	imm32
+						b.bin.push(0x03);
+						b.bin.push(0x30);
+						b.appendInstruction_UINT32BE(labelID);
+						//PCP(P3F, Pxx)
+							//1E	reg0P	reg1P
+						b.bin.push(0x1e);
+						b.bin.push(0x3f);
+						b.bin.push(parseInt(s.substr(1),16));
+						
+						b.appendInstruction_LB(0x01, labelID);
+						//[FE] [01] [00]
+						b.bin.push(0xfe);
+						b.bin.push(0x01);
+						b.bin.push(0x00);
+						//終端記号
+						i++;
+						if(this.separated[i] != ";"){
+							throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
+						} else{
+							//この命令は定数のみで構成されているのでコンパイル済みとマークする
+							b.isCompiled = true;
+							b = null;
+						}
 					} else{
-						//この命令は定数のみで構成されているのでコンパイル済みとマークする
-						b.isCompiled = true;
-						b = null;
+						throw new ELCHNOSCompiler_CompileException(0, [s], lineCount);
 					}
-				} else{
-					this.unexpected = true;
-					this.errno = 0;
-				}
-			//予約語以外
-			} else if(mode == 11 || mode == 52){
-				//変数または定数の宣言
-				//52: 引数名
-				var v = new ELCHNOSCompiler_ExpressionStructure_Variable(this, lineCount);
-				v.bits = numValBits;
-				v.isSigned = (numValSignFlag == 0) ? false : (0 != (numValSignFlag & this.Flag_Sign_Signed));
-				s = this.separated[i];
-				v.isPointer = (pointerCount != 0) ? true : false;
-				pointerCount = 0;
-				if(s.length > 0){
+				//予約語以外
+				} else if(mode == 11 || mode == 52){
+					//変数または定数の宣言
+					//52: 引数名
+					var v = new ELCHNOSCompiler_ExpressionStructure_Variable(this, lineCount);
+					v.bits = numValBits;
+					v.isSigned = (numValSignFlag == 0) ? false : (0 != (numValSignFlag & this.Flag_Sign_Signed));
+					s = this.separated[i];
+					v.isPointer = (pointerCount != 0) ? true : false;
+					pointerCount = 0;
+					if(s.length <= 0){
+						throw new ELCHNOSCompiler_CompileException(2, [s], lineCount);
+					}
 					v.identifier = s;
-					
 					this.currentStructure.push(v);
 					currentExpression = v;
-					
 					//mode:11->12
 					//mode:52->53
 					mode++;
-				} else{
-					this.unexpected = true;
-				}
-			} else if(mode == 14){
-				currentExpression.length = parseInt(s);
-				mode = 15;
-			} else if(mode == 17){
-				//定数値のみ対応
-				currentExpression.initValue.push(parseInt(s));
-				mode = 18;
-			} else if(mode == 50){
-				//関数名
-				//大文字小文字を区別
-				currentExpression.identifier = this.separated[i];
-				mode = 51;
-			} else{
-				if(mode == 0 || mode == 70 || mode == 60 || mode == 71){
+				} else if(mode == 14){
+					currentExpression.length = parseInt(s);
+					mode = 15;
+				} else if(mode == 17){
+					//定数値のみ対応
+					currentExpression.initValue.push(parseInt(s));
+					mode = 18;
+				} else if(mode == 50){
+					//関数名
 					//大文字小文字を区別
-					s = this.separated[i];
-					if(mode == 0 || mode == 70){
-						//最初の左辺だったら追加処理
-						var f = new ELCHNOSCompiler_ExpressionStructure_Expression(this, lineCount);
-						this.currentStructure.push(f);
-						currentExpression = f;
-					}
-					currentExpression.pushIdentifier(s);
-					if(!this.unexpected){
+					currentExpression.identifier = this.separated[i];
+					mode = 51;
+				} else{
+					if(mode == 0 || mode == 70 || mode == 60 || mode == 71){
+						//大文字小文字を区別
+						s = this.separated[i];
+						if(mode == 0 || mode == 70){
+							//最初の左辺だったら追加処理
+							var f = new ELCHNOSCompiler_ExpressionStructure_Expression(this, lineCount);
+							this.currentStructure.push(f);
+							currentExpression = f;
+						}
+						currentExpression.pushIdentifier(s);
 						if(mode == 0){
 							mode = 60;
 						} else if(mode == 70){
@@ -462,47 +468,38 @@ ELCHNOSCompiler.prototype = {
 					}
 				}
 			}
-			if(this.unexpected){
-				//期待されていない値
-				s = this.separated[i];
-				this.raiseError(this.errno, lineCount, [s, mode]);
-				console.log(this.structure);
-				return;
-			}
-		}
-		console.log(this.structure);
-		
-		//中間バイナリ生成
-		//バックエンドコードの中間表現を出力。
-		//0x00-0xff: そのまま使えるバイナリ
-		//0x10000000-0x1fffffff: 未決定の仮想整数レジスタ番号
-		//0x20000000-0x2fffffff: 未決定の仮想ポインタレジスタ番号
-		this.errno = 5;
-		
-		//OSECPUフロントエンドコードヘッダ
-		this.bin.push(0x05, 0xe1, 0x00);
-		
-		for(var i = 0, iLen = this.structure.length; i < iLen; i++){
-			var b = this.structure[i].createBinary();
-			if(b !== undefined){
-				this.bin.push(b);
-			}
-			if(this.unexpected){
-				if(!this.errLine){
-					this.errLine = this.structure[i].lineCount;
+			console.log(this.structure);
+			
+			//中間バイナリ生成
+			//バックエンドコードの中間表現を出力。
+			//0x00-0xff: そのまま使えるバイナリ
+			//0x10000000-0x1fffffff: 未決定の仮想整数レジスタ番号
+			//0x20000000-0x2fffffff: 未決定の仮想ポインタレジスタ番号
+			this.errno = 5;
+			
+			//OSECPUフロントエンドコードヘッダ
+			this.bin.push(0x05, 0xe1, 0x00);
+			
+			for(var i = 0, iLen = this.structure.length; i < iLen; i++){
+				var b = this.structure[i].createBinary();
+				if(b !== undefined){
+					this.bin.push(b);
 				}
-				this.raiseError(this.errno, this.errLine, null);
-				console.log(this.bin);
-				return;
+			}
+			this.expandBinaryString();
+			this.assignRegister();
+			this.bin.logAsHexByte();
+			this.saveBinary();
+
+			console.log(this.bin);
+		} catch(e){
+			//全エラー処理
+			if(e instanceof ELCHNOSCompiler_CompileException){
+				this.env.debug(e.getMessageString());
+			} else{
+				throw e;
 			}
 		}
-		
-		this.expandBinaryString();
-		this.assignRegister();
-		this.bin.logAsHexByte();
-		this.saveBinary();
-		
-		console.log(this.bin);
 	},
 	compile_removeComment: function(){
 		//コメント削除
@@ -784,8 +781,7 @@ ELCHNOSCompiler_ExpressionStructure.prototype = {
 	T_SINT28	:0x14,
 	T_UINT28	:0x15,
 	createBinary: function(){
-		this.compiler.unexpected = true;
-		return undefined;
+		throw new ELCHNOSCompiler_CompileException(5, ["Translation undefined."], this.lineCount);
 	},
 	appendInstruction_LB: function(opt, labelID){
 		this.bin.push(0x01, opt);
@@ -815,11 +811,48 @@ ELCHNOSCompiler_ExpressionStructure.prototype = {
 	},
 }
 
+var ELCHNOSCompiler_ExpressionStructure_Block = function(compiler, lineCount){
+	//ブロック構造を展開する
+	//blockStartLabelID:
+	//実行部分
+	//(break->blockEndLabelID)
+	//blockEndLabelID:
+	ELCHNOSCompiler_ExpressionStructure_Block.base.apply(this, arguments);
+	this.structure = new Array();
+	this.blockStartLabelID = this.compiler.allocateLabelID();
+	this.blockEndLabelID = this.compiler.allocateLabelID();
+}.extend(ELCHNOSCompiler_ExpressionStructure, {
+	createBinary: function(){
+		//blockStartLabelID:
+		this.appendInstruction_LB(0x00, this.blockStartLabelID);
+		//実行部分
+		for(var i = 0, iLen = this.structure.length; i < iLen; i++){
+			if(this.structure[i] instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
+				if(this.structure[i].argumentIndex == -1){
+					//ローカル変数割り当て
+					this.structure[i].allocateRegisterID(this);
+				}
+			} else{
+				var b = this.structure[i].createBinary();
+				if(b !== undefined){
+					this.bin.push(b);
+				}
+			}
+		}
+		this.compiler.freeAllRegisterOfOwner(this);
+		//blockEndLabelID:
+		this.appendInstruction_LB(0x00, this.blockEndLabelID);
+		return this.bin;
+	},
+});
+
 var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount){
 	// if(!isPointer && labelID != 0):DATA命令によるデータ(ラベル番号の代わり)
 	// if(isPointer && labelID == 0):ポインタ変数
 	// if(!isPointer && labelID == 0):一般変数
 	// if(isImmediateData):即値(initValue[0]がその値)
+	// if(argumentIndex == -1):ローカル変数
+	// else:引数変数
 	ELCHNOSCompiler_ExpressionStructure_Variable.base.apply(this, arguments);
 	this.bits = 0;
 	//配列でなければ0が入る
@@ -859,12 +892,10 @@ var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount)
 					this.bin.push(this.initValue[i] & 0xFF);
 				}
 				if(i > this.length){
-					this.compiler.unexpected = true;
-					return undefined;
-				} else{
-					for(iLen = this.length; i < iLen; i++){
-						this.bin.push(0x00);
-					}
+					throw new ELCHNOSCompiler_CompileException(5, ["DATA:Too long length of initValue."], this.lineCount);
+				}
+				for(iLen = this.length; i < iLen; i++){
+					this.bin.push(0x00);
 				}
 			}
 			return this.bin;
@@ -889,9 +920,7 @@ var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount)
 				//T_UINT8		:0x03,
 				this.pointerType = this.T_UINT8;
 			} else{
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
-				return undefined;
+				throw new ELCHNOSCompiler_CompileException(5, ["Not implemented pointer type ", this.pointerType], this.lineCount);
 			}
 		}
 	},
@@ -909,8 +938,7 @@ var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount)
 				this.labelID = 0;
 				this.registerID = src.registerID;
 			} else{
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Variable:copyFrom: unexpected."], this.lineCount);
 			}
 		} else if(!isNaN(src)){
 			//即値
@@ -927,30 +955,25 @@ var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount)
 			src = src.toLowerCase();
 			if(src.indexOf("r") == 0){
 				//整数レジスタ名
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Variable:copyFrom:Not implemented src IReg"], this.lineCount);
 			} else if(src.indexOf("p") == 0){
 				//ポインタレジスタ名
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Variable:copyFrom:Not implemented src PReg"], this.lineCount);
 			} else{
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Variable:copyFrom: Unexpected."], this.lineCount);
 			}
 		} else{
-			console.log("unexpected.");
-			this.compiler.unexpected = true;
+			throw new ELCHNOSCompiler_CompileException(5, ["Variable:copyFrom: Unexpected."], this.lineCount);
 		}
 	},
 });
 
 var ELCHNOSCompiler_ExpressionStructure_Function = function(compiler, lineCount){
 	ELCHNOSCompiler_ExpressionStructure_Function.base.apply(this, arguments);
-	this.structure = new Array();
 	this.identifier = null;
 	this.isInline = false;
 	this.labelID = 0;
-}.extend(ELCHNOSCompiler_ExpressionStructure, {
+}.extend(ELCHNOSCompiler_ExpressionStructure_Block, {
 	createBinary: function(){
 		if(this.isInline){
 			//インライン関数はその場で展開されるのでバイナリはここでは生成しない
@@ -959,28 +982,12 @@ var ELCHNOSCompiler_ExpressionStructure_Function = function(compiler, lineCount)
 			//レジスタ退避のことはまだ考えてない(実質inline)
 			//optを変更できるようにするべき(grobal指定)
 			//LB(opt:0x0, this.labelID);
-			
+			//引数のことも考えていない
 			this.labelID = this.compiler.allocateLabelID();
 			this.appendInstruction_LB(0x00, this.labelID);
 			//内部
-			for(var i = 0, iLen = this.structure.length; i < iLen; i++){
-				if(this.structure[i] instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
-					this.structure[i].allocateRegisterID(this);
-				} else{
-					var b = this.structure[i].createBinary();
-					if(b !== undefined){
-						this.bin.push(b);
-					}
-				}
-				if(this.compiler.unexpected){
-					if(!this.compiler.errLine){
-						this.compiler.errLine = this.structure[i].lineCount;
-					}
-					console.log(this);
-					return undefined;
-				}
-			}
-			this.compiler.freeAllRegisterOfOwner(this);
+			ELCHNOSCompiler_ExpressionStructure_Function.base.prototype.createBinary.apply(this);
+			
 			return this.bin;
 		}
 	},
@@ -988,7 +995,7 @@ var ELCHNOSCompiler_ExpressionStructure_Function = function(compiler, lineCount)
 		//argStackは引数が右から詰まったリスト(popしていくと順番通り)
 		var argCount = 0;
 		if(this.isInline){
-			//内部
+			//インライン引数展開
 			for(var i = 0, iLen = this.structure.length; i < iLen; i++){
 				if(this.structure[i] instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
 					if(this.structure[i].argumentIndex != -1){
@@ -998,28 +1005,20 @@ var ELCHNOSCompiler_ExpressionStructure_Function = function(compiler, lineCount)
 							argCount++;
 							this.structure[i].copyFrom(o);
 						} else{
-							console.log("unexpected.");
-							this.compiler.unexpected = true;
+							throw new ELCHNOSCompiler_CompileException(5, ["Function:createBinary_Inline:Too few arguments."], this.lineCount);
 						}
 					} else{
-						//通常変数初期化
-						this.structure[i].allocateRegisterID(this);
+						break;
 					}
 				} else{
-					var b = this.structure[i].createBinary();
-					if(b !== undefined){
-						this.bin.push(b);
-					}
-				}
-				if(this.compiler.unexpected){
-					if(!this.compiler.errLine){
-						this.compiler.errLine = this.structure[i].lineCount;
-					}
-					console.log(this);
-					return undefined;
+					break;
 				}
 			}
-			this.compiler.freeAllRegisterOfOwner(this);
+			if(argStack.length != 0){
+				throw new ELCHNOSCompiler_CompileException(5, ["Function:createBinary_Inline:Too many arguments."], this.lineCount);
+			}
+			//内部
+			ELCHNOSCompiler_ExpressionStructure_Function.base.prototype.createBinary.apply(this);
 			return this.bin;
 		} else{
 			return undefined;
@@ -1029,14 +1028,13 @@ var ELCHNOSCompiler_ExpressionStructure_Function = function(compiler, lineCount)
 
 var ELCHNOSCompiler_ExpressionStructure_Loop_for = function(compiler, lineCount){
 	ELCHNOSCompiler_ExpressionStructure_Loop_for.base.apply(this, arguments);
-	this.structure = new Array();
 	this.initializer = null;
 	this.conditonalExpression = null;
 	this.incrementalExpression = null;
 	this.loopLabelID = 0;
 	this.endLabelID = 0;
 	this.passLabelID = 0;
-}.extend(ELCHNOSCompiler_ExpressionStructure, {
+}.extend(ELCHNOSCompiler_ExpressionStructure_Block, {
 	createBinary: function(){
 		//initializer
 		//loopLabelID:
@@ -1057,17 +1055,11 @@ var ELCHNOSCompiler_ExpressionStructure_Loop_for = function(compiler, lineCount)
 		
 		//initializer
 		this.bin.push(this.initializer.createBinary());
-		if(this.compiler.unexpected){
-			return this.bin;
-		}
 		//loopLabelID:
 		this.appendInstruction_LB(0x00, this.loopLabelID);
 		//conditonalExpression
 		//本当はR3fを使いたいけど少し手抜き
 		this.bin.push(this.conditonalExpression.createBinary());
-		if(this.compiler.unexpected){
-			return this.bin;
-		}
 		//-?>passLabelID
 		this.appendInstruction_ConditionalJMP(this.conditonalExpression.getRegisterIDAsIntegerRegister(this.conditonalExpression.dataStack[0]), this.passLabelID);
 		//->endLabelID
@@ -1075,31 +1067,9 @@ var ELCHNOSCompiler_ExpressionStructure_Loop_for = function(compiler, lineCount)
 		//passLabelID:
 		this.appendInstruction_LB(0x00, this.passLabelID);
 		//実行部分
-		for(var i = 0, iLen = this.structure.length; i < iLen; i++){
-			if(this.structure[i] instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
-				//ブロックスコープでの変数宣言は未実装
-				//this.structure[i].allocateRegisterID(this);
-				this.compiler.unexpected = true;
-			} else{
-				var b = this.structure[i].createBinary();
-				if(b !== undefined){
-					this.bin.push(b);
-				}
-			}
-			if(this.compiler.unexpected){
-				if(!this.compiler.errLine){
-					this.compiler.errLine = this.structure[i].lineCount;
-				}
-				console.log(this);
-				return undefined;
-			}
-		}
-		
+		ELCHNOSCompiler_ExpressionStructure_Loop_for.base.prototype.createBinary.apply(this);
 		//incrementalExpression
 		this.bin.push(this.incrementalExpression.createBinary());
-		if(this.compiler.unexpected){
-			return this.bin;
-		}
 		//->loopLabelID
 		this.appendInstruction_JMP(this.loopLabelID);
 		//endLabelID:
@@ -1111,9 +1081,8 @@ var ELCHNOSCompiler_ExpressionStructure_Loop_for = function(compiler, lineCount)
 
 var ELCHNOSCompiler_ExpressionStructure_if = function(compiler, lineCount){
 	ELCHNOSCompiler_ExpressionStructure_if.base.apply(this, arguments);
-	this.structure = new Array();
 	this.conditonalExpression = null;
-}.extend(ELCHNOSCompiler_ExpressionStructure, {
+}.extend(ELCHNOSCompiler_ExpressionStructure_Block, {
 	createBinary: function(){
 		//conditonalExpression
 		//-?>passLabelID
@@ -1130,9 +1099,6 @@ var ELCHNOSCompiler_ExpressionStructure_if = function(compiler, lineCount){
 		//conditonalExpression
 		//本当はR3fを使いたいけど少し手抜き
 		this.bin.push(this.conditonalExpression.createBinary());
-		if(this.compiler.unexpected){
-			return this.bin;
-		}
 		//-?>passLabelID
 		this.appendInstruction_ConditionalJMP(this.conditonalExpression.getRegisterIDAsIntegerRegister(this.conditonalExpression.dataStack[0]), this.passLabelID);
 		//->endLabelID
@@ -1140,26 +1106,7 @@ var ELCHNOSCompiler_ExpressionStructure_if = function(compiler, lineCount){
 		//passLabelID:
 		this.appendInstruction_LB(0x00, this.passLabelID);
 		//実行部分
-		for(var i = 0, iLen = this.structure.length; i < iLen; i++){
-			if(this.structure[i] instanceof ELCHNOSCompiler_ExpressionStructure_Variable){
-				//ブロックスコープでの変数宣言は未実装
-				//this.structure[i].allocateRegisterID(this);
-				this.compiler.unexpected = true;
-			} else{
-				var b = this.structure[i].createBinary();
-				if(b !== undefined){
-					this.bin.push(b);
-				}
-			}
-			if(this.compiler.unexpected){
-				if(!this.compiler.errLine){
-					this.compiler.errLine = this.structure[i].lineCount;
-				}
-				console.log(this);
-				return undefined;
-			}
-		}
-
+		ELCHNOSCompiler_ExpressionStructure_if.base.prototype.createBinary.apply(this);
 		//endLabelID:
 		this.appendInstruction_LB(0x00, this.endLabelID);
 		
@@ -1203,9 +1150,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 		//オブジェクトであればそのオブジェクトのインスタンスを渡す
 		//モード確認
 		if(this.mode != this.Mode_Operand){
-			console.log("unexpected.");
-			this.compiler.unexpected = true;
-			return;
+			throw new ELCHNOSCompiler_CompileException(5, ["Expression:pushOperand:Unexpected identifier.", identifier], this.lineCount);
 		}
 		this.mode = this.Mode_Operator;
 		
@@ -1229,9 +1174,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 			if(operator == "*" || operator == "-"){
 				this.shouldPushOperatorAfterNextOperand = true;
 			} else{
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
-				return;
+				throw new ELCHNOSCompiler_CompileException(5, ["Expression:pushOperator:Unexpected identifier.", operator], this.lineCount);
 			}
 		}
 		this.mode = this.Mode_Operand;
@@ -1257,8 +1200,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 					break;
 				} else if(o === undefined){
 					//括弧の個数が合わないのでエラー
-					this.compiler.unexpected = true;
-					return;
+					throw new ELCHNOSCompiler_CompileException(5, ["Expression:pushOperator:Unexpected identifier.", operator], this.lineCount);
 				}
 				this.evalStack.push(o);
 			}
@@ -1326,7 +1268,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 					//レジスタ名指定
 					this.pushOperand(s);
 				} else{
-					this.compiler.unexpected = true;
+					throw new ELCHNOSCompiler_CompileException(5, ["Expression:pushIdentifier:Unexpected identifier.", identifier], this.lineCount);
 				}
 			}
 		}
@@ -1340,16 +1282,12 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 		for(i++; ; i++){
 			var s = this.compiler.separated[i];
 			if(s == undefined){
-				this.compiler.unexpected = true;
-				break;
+				throw new ELCHNOSCompiler_CompileException(5, ["Expression:readExpressionToTerminator:Bracket error."], this.lineCount);
 			}
 			if(this.startBracketIndexStack.length == 0 && s == terminalCharacter){
 				break;
 			}
 			this.pushIdentifier(s);
-			if(this.compiler.unexpected){
-				break;
-			}
 		}
 		return i;
 	},
@@ -1412,9 +1350,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 					op01 = this.dataStack.pop();
 					op00 = this.dataStack.pop();
 					if(op00 === undefined || op01 === undefined){
-						console.log("unexpected.");
-						this.compiler.unexpected = true;
-						break;
+						throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:Operand undefined."], this.lineCount);
 					}
 					this.createBinary_substitute(op00, op01);
 				} else if(	o == "!=" || o == "-" || o == "<=" || o == "+"){
@@ -1423,9 +1359,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 					op02 = this.dataStack.pop();
 					op01 = this.dataStack.pop();
 					if(op01 === undefined || op02 === undefined){
-						console.log("unexpected.");
-						this.compiler.unexpected = true;
-						break;
+						throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:Operand undefined."], this.lineCount);
 					}
 					if(o == "!="){
 						opcode = 0x21;
@@ -1436,9 +1370,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 					} else if(o == "+"){
 						opcode = 0x14;
 					} else{
-						console.log("unexpected.");
-						this.compiler.unexpected = true;
-						break;
+						throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:Unexpected binary operator.", o], this.lineCount);
 					}
 					if(opcode != 0xff){
 						this.createBinary_TernaryIntegerOperation(op01, op02, opcode);
@@ -1451,16 +1383,13 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 						this.createBinary_readPointer(op02);
 					} else{
 						//乗算
-						console.log("unexpected.");
-						this.compiler.unexpected = true;
+						throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:Not implemented.", o], this.lineCount);
 					}
 				} else if(o == "++"){
 					//increment
 					op00 = this.dataStack.pop();
 					if(op00 === undefined){
-						console.log("unexpected.");
-						this.compiler.unexpected = true;
-						break;
+						throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:Operand undefined."], this.lineCount);
 					}
 					this.createBinary_increment(op00);
 				} else if(o == "()"){
@@ -1471,26 +1400,29 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 							f = op00;
 							break;
 						} else if(op00 === undefined){
-							console.log("unexpected.");
-							this.compiler.unexpected = true;
-							break;
+							throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:Operand undefined."], this.lineCount);
 						} else{
 							fArgStack.push(op00);
 						}
 					}
 					if(f.isInline){
 						//インライン関数の直接展開
-						this.bin.push(f.createBinary_Inline(fArgStack));
+						try{
+							this.bin.push(f.createBinary_Inline(fArgStack));
+						} catch(e){
+							//行数表示を関数呼び出し式の場所に変更
+							if(e instanceof ELCHNOSCompiler_CompileException){
+								e.lineCount = this.lineCount;
+							}
+							throw e;
+						}
 						//これはダミー
 						this.dataStack.push("r30");
 					} else{
-						console.log("unexpected.");
-						this.compiler.unexpected = true;
+						throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:Not implemented stdcall function."], this.lineCount);
 					}
 				} else{
-					console.log("unexpected.");
-					this.compiler.unexpected = true;
-					break;
+					throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:Not implemented operator.", o], this.lineCount);
 				}
 			} else{
 				this.dataStack.push(o);
@@ -1507,8 +1439,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 				this.createBinary_substitute("r" + destRegID.toString(16), lastData);
 			}
 		} else{
-			console.log("unexpected.");
-			this.compiler.unexpected = true;
+			throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary:dataStack error."], this.lineCount);
 		}
 		this.compiler.freeAllRegisterOfOwner(this);
 		return this.bin;
@@ -1529,8 +1460,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 				this.bin.push(0x03, destValue);
 				this.appendInstruction_UINT32BE(srcValue);
 			} else{
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary_substitute:Not implemented."], this.lineCount);
 			}
 		} else{
 			destValue = this.getRegisterIDAsIntegerRegister(dest);
@@ -1550,13 +1480,11 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 						//10	reg0	reg1	FF							CP(reg0, reg1);
 						this.bin.push(0x10, destValue, srcValue, 0xff);
 					} else{
-						console.log("unexpected.");
-						this.compiler.unexpected = true;
+						throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary_substitute:Type error."], this.lineCount);
 					}
 				}
 			} else{
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary_substitute:Type error."], this.lineCount);
 			}
 		}
 		this.dataStack.push(dest);
@@ -1577,9 +1505,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 					destValue = src0Value + src1Value;
 					break;
 				default:
-					console.log("unexpected.");
-					this.compiler.unexpected = true;
-					return;
+					throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary_TernaryIntegerOperation:Not implemented opcode.", opcode], this.lineCount);
 			}
 			this.dataStack.push(destValue);
 			return;
@@ -1592,8 +1518,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 		} else{
 			src0Value = this.getRegisterIDAsIntegerRegister(src0);
 			if(src0Value === undefined){
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary_substitute:Type error."], this.lineCount);
 			}
 		}
 		if(src1Value !== undefined){
@@ -1602,8 +1527,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 		} else{
 			src1Value = this.getRegisterIDAsIntegerRegister(src1);
 			if(src1Value === undefined){
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary_substitute:Type error."], this.lineCount);
 			}
 		}
 		//格納先のレジスタをひとつもらう
@@ -1633,8 +1557,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 			this.appendInstruction_UINT32BE(src0.pointerType);
 			this.bin.push(src0Value, 0x00);
 		} else{
-			console.log("unexpected.");
-			this.compiler.unexpected = true;
+			throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary_readPointer:Type error."], this.lineCount);
 		}
 		this.dataStack.push("r" + destValue.toString(16));
 	},
@@ -1659,8 +1582,7 @@ var ELCHNOSCompiler_ExpressionStructure_Expression = function(compiler, lineCoun
 				//14	reg0	reg1	reg2							ADD(reg0, reg1, reg2);	reg0 = (reg1 + reg2);
 				this.bin.push(0x14, destValue, destValue, 0x3f);
 			} else{
-				console.log("unexpected.");
-				this.compiler.unexpected = true;
+				throw new ELCHNOSCompiler_CompileException(5, ["Expression:createBinary_increment:Type error."], this.lineCount);
 			}
 		}
 		this.dataStack.push(dest);
@@ -1714,7 +1636,7 @@ var ELCHNOSCompiler_ExpressionStructure_OSECPUBinary = function(compiler, lineCo
 }.extend(ELCHNOSCompiler_ExpressionStructure, {
 	createBinary: function(){
 		if(!this.isCompiled){
-			this.compiler.unexpected = true;
+			throw new ELCHNOSCompiler_CompileException(5, ["OSECPUBinary:createBinary:Not compiled."], this.lineCount);
 		}
 		return this.bin;
 	},
