@@ -47,8 +47,8 @@ AI_WordRecognition.prototype = {
 		}
 	},
 	debugShowCandidateWordList: function(){
-		this.env.debug("candidateWordList:\n");
 		var c = this.env.memory.candidateWordList;
+		this.env.debug("candidateWordList:" + c.length + "\n");
 		for(var i = 0, iLen = c.length; i < iLen; i++){
 			this.env.debug(c[i].wordCount.toString() + " :" + c[i].wordLevel.toString() + " :" + c[i].str + "\n");
 		}

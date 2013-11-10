@@ -10,6 +10,7 @@ include("./aimtbase.js");
 include("./aimemtag.js");
 include("./aithink.js");
 include("./aiwrcgnz.js");
+include("./ainet.js");
 //ELCC
 include("./elcc/elcc.js");
 include("./elcc/elcexpr.js");

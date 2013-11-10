@@ -1,5 +1,8 @@
 //AI004
 
+//開発時クロスドメイン許可で起動するには、
+// /Applications/Google\ Chrome.app/ --allow-file-access-from-files --disable-web-security
+
 function AI(messageBoxDOMObject, debugBoxDOMObject){
 	//ブラウザチェック
 	this.checkBrowser();
@@ -7,6 +10,7 @@ function AI(messageBoxDOMObject, debugBoxDOMObject){
 	this.input = new AI_Input(this);
 	this.wordRecognition = new AI_WordRecognition(this);
 	this.IOManager = new AI_IOManager(this);
+	this.networkManager = new AI_NetworkManager(this);
 	this.memory = new AI_Memory(this);
 	this.think = new AI_Think(this);
 	//出力関連
@@ -40,6 +44,7 @@ function AI(messageBoxDOMObject, debugBoxDOMObject){
 	this.processByMode = this.inputProcess_Standard;
 
 	this.debug("AI system initialized.\n");
+	this.debug("To enter internal console mode,\n  type '#4ca6ed1a-e62e-470b-9d7b-e332f709e48f'.\n");
 }
 AI.prototype = {
 	UUIDStrLen: 36,
@@ -185,8 +190,19 @@ AI.prototype = {
 			this.wordRecognition.computeEachWordLevel();
 			this.wordRecognition.sortCandidateWordListByWordLevel();
 			this.wordRecognition.debugShowCandidateWordList();
+		} else if(str.indexOf("inputFromURL ") == 0){
+			//webページを読み込む
+			//inputFromURL http://www.aozora.gr.jp/cards/000035/files/1567_14913.html
+			var url = str.substring(13);
+			this.debug("[" + url + "]\n");
+			var res = this.networkManager.sendRequestSync("GET", url, null);
+			this.debug("[" + res + "]\n");
 		} else{
 			this.debug("Unknown command [" + str + "].\n");
+			this.debug("Command list:\n");
+			this.debug("Implemented command list:\n");
+			this.debug("  show cwl\n");
+			this.debug("  exit\n");
 		}
 		
 		this.debug("**** End Processing (InternalConsole) ****\n");

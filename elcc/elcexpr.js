@@ -9,27 +9,6 @@ function ELCHNOSCompiler_ExpressionStructure(compiler, lineCount){
 	this.bin = new Array();
 }
 ELCHNOSCompiler_ExpressionStructure.prototype = {
-	T_VPtr		:0x01,
-	T_SINT8		:0x02,	//8bitの符号付き, いわゆる signed char.
-	T_UINT8		:0x03,
-	T_SINT16	:0x04,	//16bitの符号付き, いわゆる short.
-	T_UINT16	:0x05,
-	T_SINT32	:0x06,
-	T_UINT32	:0x07,
-	T_SINT4		:0x08,
-	T_UINT4		:0x09,
-	T_SINT2		:0x0a,
-	T_UINT2		:0x0b,
-	T_SINT1		:0x0c,	//代入できるのは0か-1のみ.
-	T_UINT1		:0x0d,
-	T_SINT12	:0x0e,
-	T_UINT12	:0x0f,
-	T_SINT20	:0x10,
-	T_UINT20	:0x11,
-	T_SINT24	:0x12,
-	T_UINT24	:0x13,
-	T_SINT28	:0x14,
-	T_UINT28	:0x15,
 	createBinary: function(){
 		throw new ELCHNOSCompiler_CompileException(5, ["Translation undefined."], this.lineCount);
 	},
@@ -133,13 +112,13 @@ var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount)
 			//34	typ32	len32	data...	
 			this.bin.push(0x34);
 			//typ32
-			if(this.pointerType == this.T_UINT8){
+			if(this.pointerType == WebCPU.pType.UINT8){
 				this.bin.push(0x00, 0x00, 0x00, 0x03);
 			}
 			//len32
 			this.appendInstruction_UINT32BE(this.length);
 			//data
-			if(this.pointerType == this.T_UINT8){
+			if(this.pointerType == WebCPU.pType.UINT8){
 				for(var i = 0, iLen = this.initValue.length; i < iLen; i++){
 					this.bin.push(this.initValue[i] & 0xFF);
 				}
@@ -170,7 +149,7 @@ var ELCHNOSCompiler_ExpressionStructure_Variable = function(compiler, lineCount)
 		if(this.length > 0 || this.isPointer){
 			if(this.bits == 8 && this.isSigned == false){
 				//T_UINT8		:0x03,
-				this.pointerType = this.T_UINT8;
+				this.pointerType = WebCPU.pType.UINT8;
 			} else{
 				throw new ELCHNOSCompiler_CompileException(5, ["Not implemented pointer type ", this.pointerType], this.lineCount);
 			}
