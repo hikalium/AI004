@@ -7,6 +7,7 @@ function AI_MemoryTag(typeUUIDStr){
 AI_MemoryTag.prototype = {
 	Type_CandidateWord: "2fba8fc1-2b9a-46e0-8ade-455c0bd30637",
 	Type_Word: "d5eef85c-a796-4d04-bb72-8d45c94c5e4f",
+	
 	//http://codedehitokoto.blogspot.jp/2012/01/javascriptuuid.html
 	initUUID: function(){
 		if(!this.uuid){
@@ -42,12 +43,6 @@ AI_MemoryTag.prototype = {
 				this.loadFromMemoryData(data.data);
 			}
 		}
-	},
-	escapeForMemory: function(str){
-		return "\"" + str.replaceAll(":", "@:").replaceAll("\"", "\\\"") + "\"";
-	},
-	unescapeForMemory: function(str){
-		return str.replaceAll("@:", ":");
 	},
 	parseArrayToStringSource: function(anArray){
 		if(!anArray){

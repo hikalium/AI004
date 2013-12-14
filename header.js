@@ -11,6 +11,10 @@ include("./aimemtag.js");
 include("./aithink.js");
 include("./aiwrcgnz.js");
 include("./ainet.js");
+include("./aihtml.js");
+include("./aiboot.js");
+include("./aijobbas.js");
+include("./aijobs.js");
 //ELCC
 include("./elcc/elcc.js");
 include("./elcc/elcexpr.js");

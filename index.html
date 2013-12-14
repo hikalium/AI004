@@ -35,7 +35,7 @@ function sendToAI(e){
 	if (e.keyCode == 13){ // Enterが押された
 		if(!e.shiftKey && inputBoxObj.value.replace(/\s/g, "").length > 0){
 			e.preventDefault();
-			mainAI.sendToAI(inputBoxObj.value);
+			mainAI.sendToAI(inputBoxObj.value, "User");
 			inputBoxObj.value = '';
 		}
 	}
@@ -54,7 +54,7 @@ function handleFileSelect(evt){
 		var r = new FileReader();
 		r.onload = (function(file){
 			return function(e){
-				mainAI.sendTextFromFileToAI(r.result, file.name, file.lastModifiedDate);
+				mainAI.sendTextFromFileToAI(r.result, file.name, file.lastModifiedDate, "File");
 			}
 		})(f);
 		r.readAsText(f);

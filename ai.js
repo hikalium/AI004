@@ -3,6 +3,8 @@
 //開発時クロスドメイン許可で起動するには、
 // /Applications/Google\ Chrome.app/ --allow-file-access-from-files --disable-web-security
 
+var DebugModeEnabled = true;
+
 function AI(messageBoxDOMObject, debugBoxDOMObject){
 	//ブラウザチェック
 	this.checkBrowser();
@@ -18,7 +20,7 @@ function AI(messageBoxDOMObject, debugBoxDOMObject){
 	this.tickTimer = window.setInterval(function(){that.tick();}, 100);;
 	this.messageBox = null;
 	this.messageBoxBuffer = "";
-	this.maxMessageStringLength = 0xfffff;
+	this.maxMessageStringLength = 0xffff;
 	this.debugBox = null;
 	this.debugBoxBuffer = "";
 	this.maxDebugStringLength = 0xffff;
@@ -40,8 +42,15 @@ function AI(messageBoxDOMObject, debugBoxDOMObject){
 		this.inputProcess_InternalConsole,
 		this.inputProcess_CompileELCHNOS_OSECPU,
 	];
-	this.mode = this.UUID_Mode_Standard;
-	this.processByMode = this.inputProcess_Standard;
+	if(!DebugModeEnabled){
+		this.mode = this.UUID_Mode_Standard;
+		this.processByMode = this.inputProcess_Standard;
+	} else{
+		this.mode = this.UUID_Mode_InternalConsole;
+		this.processByMode = this.inputProcess_InternalConsole;
+	}
+
+	AI_Bootstrap(this);
 
 	this.debug("AI system initialized.\n");
 	this.debug("To enter internal console mode,\n  type '#4ca6ed1a-e62e-470b-9d7b-e332f709e48f'.\n");
@@ -53,7 +62,7 @@ AI.prototype = {
 	UUID_Mode_SaveMemory: "52360c62-6a8a-4f6e-8bdd-43381996e996",
 	UUID_Mode_InternalConsole: "4ca6ed1a-e62e-470b-9d7b-e332f709e48f",
 	UUID_Mode_CompileELCHNOS_OSECPU: "17ddde48-7d4c-498f-98d8-3e73f8845028",
-	sendToAI: function(str){
+	sendToAI: function(str, srctype){
 		var p, strbaseindex;
 		
 		this.debug("**** Start inputting ****\n");
@@ -68,11 +77,11 @@ AI.prototype = {
 			if(p == -1){
 				//終端まで到達
 				//それ以前の文字列を入力
-				this.processByMode(str.substring(strbaseindex));
+				this.processByMode(str.substring(strbaseindex), srctype);
 				break;
 			}
 			//まずはモード変更の直前までの文字列を入力
-			this.processByMode(str.substring(strbaseindex, p));
+			this.processByMode(str.substring(strbaseindex, p), srctype);
 			//モード変更要求
 			this.changeMode(str.substring(p + 1, p + 1 + this.UUIDStrLen));
 		}
@@ -99,11 +108,15 @@ AI.prototype = {
 		}
 		
 	},
-	sendTextFromFileToAI: function(str, name, modDate){
+	sendTextFromFileToAI: function(str, name, modDate, srctype){
 		//ファイルからの読み込み時は、読み込み終了後に読み込み以前のモードに戻る。
-		this.debug("sendTextFromFileToAI: " + modDate.toLocaleString() + " [" + name + "]\n");
+		this.debug("sendTextFromFileToAI:");
+		if(modDate){
+			this.debug(modDate.toLocaleString());
+		}
+		this.debug(" [" + name + "]\n");
 		var oldmode = this.mode;
-		this.sendToAI(str);
+		this.sendToAI(str, srctype);
 		this.changeMode(oldmode);
 	},
 	setMessageBoxDOMObject: function(mBoxObj){
@@ -156,58 +169,77 @@ AI.prototype = {
 			this.message("System> このブラウザは記憶保存(HTML5FileAPI)に対応していません。", true);
 		}
 	},
-	inputProcess_Standard: function(str){
+	inputProcess_Standard: function(str, srctype){
 		this.debug("**** Start Processing (Standard) ****\n");
 		
 		this.debug("input:[" + str + "]\n");
-		this.input.appendInput(str);
+		this.input.appendInput(str, srctype);
 		this.think.inputting = true;
 		
 		this.debug("**** End Processing (Standard) ****\n");
 	},
-	inputProcess_ReadMemory: function(str){
+	inputProcess_ReadMemory: function(str, srctype){
 		this.debug("**** Start Processing (ReadMemory) ****\n");
 		
 		this.memory.loadMemory(str);
 		
 		this.debug("**** End Processing (ReadMemory) ****\n");
 	},
-	inputProcess_SaveMemory: function(str){
+	inputProcess_SaveMemory: function(str, srctype){
 		this.debug("**** Start Processing (SaveMemory) ****\n");
 		
 		this.memory.saveMemory();
 		
 		this.debug("**** End Processing (SaveMemory) ****\n");
 	},
-	inputProcess_InternalConsole: function(str){
+	inputProcess_InternalConsole: function(str, srctype){
+		var that = this;
 		this.debug("**** Start Processing (InternalConsole) ****\n");
 		if(str == "exit"){
 			this.debug("Exit InternalConsole.\n");
 			this.changeMode(this.UUID_Mode_Standard);
 		} else if(str == "show cwl"){
 			//show candidateWordList
-			this.wordRecognition.sortCandidateWordListByWordCount();
-			this.wordRecognition.computeEachWordLevel();
-			this.wordRecognition.sortCandidateWordListByWordLevel();
 			this.wordRecognition.debugShowCandidateWordList();
+		} else if(str == "show wl"){
+			//show wordList
+			this.debug("wordList:" + this.memory.wordList.length + "\n" );
+			this.memory.wordList.logEachPropertyNamed("str", function(s){ that.debug(s); });
 		} else if(str.indexOf("inputFromURL ") == 0){
 			//webページを読み込む
 			//inputFromURL http://www.aozora.gr.jp/cards/000035/files/1567_14913.html
+			//inputFromURL http://ja.wikipedia.org/wiki/%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%9A%E3%83%BC%E3%82%B8
+			//inputFromURL http://ja.wikipedia.org/wiki/%E6%9D%B1%E4%BA%AC%E5%AD%A6%E8%8A%B8%E5%A4%A7%E5%AD%A6%E9%99%84%E5%B1%9E%E9%AB%98%E7%AD%89%E5%AD%A6%E6%A0%A1
+			//inputFromURL http://osecpu.osask.jp/wiki/?FrontPage
+			//inputFromURL http://osecpu.osask.jp/wiki/?impressions
 			var url = str.substring(13);
 			this.debug("[" + url + "]\n");
-			var res = this.networkManager.sendRequestSync("GET", url, null);
-			this.debug("[" + res + "]\n");
+			var res = this.networkManager.sendRequestThroughPHPSync("GET", url, null);
+			//this.debug("[" + res + "]\n");
+			var parser = new AI_HTMLParser(this);
+			parser.loadText(res);
+			var mainString = parser.mainString;
+			this.debug(mainString);
+			console.log(parser.linkList);
+			
+			this.changeMode(this.UUID_Mode_Standard);
+			this.sendTextFromFileToAI(mainString, url, null, "Web");
+			this.changeMode(this.UUID_Mode_InternalConsole);
+			
+		} else if(str == "savemem"){
+			this.memory.saveMemory();
 		} else{
 			this.debug("Unknown command [" + str + "].\n");
 			this.debug("Command list:\n");
 			this.debug("Implemented command list:\n");
 			this.debug("  show cwl\n");
+			this.debug("  show wl\n");
 			this.debug("  exit\n");
 		}
 		
 		this.debug("**** End Processing (InternalConsole) ****\n");
 	},
-	inputProcess_CompileELCHNOS_OSECPU: function(str){
+	inputProcess_CompileELCHNOS_OSECPU: function(str, srctype){
 		this.debug("**** Start Processing (CompileELCHNOS_OSECPU) ****\n");
 		
 		var cc = new ELCHNOSCompiler(this);

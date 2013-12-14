@@ -1,5 +1,6 @@
 function AI_IOManager(env){
 	this.env = env;
+	this.lastSentenceSourceType = undefined;
 }
 AI_IOManager.prototype = {
 	//http://www.atmarkit.co.jp/ait/articles/1112/16/news135_2.html
@@ -30,11 +31,11 @@ AI_Input.prototype = {
 		"?",
 		"\n",
 	],
-	appendInput: function(input){
+	appendInput: function(input, srctype){
 		//inputはStringとArrayが使用できる
 		var sList = input.splitByArray(this.sentenceSeparator);
-		
-		this.sentenceList = this.sentenceList.concat(sList)
+		this.sentenceList.push([srctype]);
+		this.sentenceList = this.sentenceList.concat(sList);
 	},
 	getSentence: function(){
 		//改行のみの文は破棄
@@ -42,8 +43,12 @@ AI_Input.prototype = {
 			if(this.sentenceList.length <= 0){
 				return undefined;
 			}
-			var retv = this.sentenceList[0];
-			this.sentenceList.splice(0, 1);
+			var retv = this.sentenceList.shift();
+			if(retv instanceof Array){
+				//ソースタイプ変更
+				this.lastSentenceSourceType = retv[0];
+				continue;
+			}
 			retv = retv.trim();
 			if(retv != ""){
 				break;

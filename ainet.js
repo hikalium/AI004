@@ -1,5 +1,6 @@
 function AI_NetworkManager(env){
 	this.env = env;
+	this.PHPExtPath = "./ainet.php";
 }
 AI_NetworkManager.prototype = {
 	//from PCD2013GSCL
@@ -42,7 +43,12 @@ AI_NetworkManager.prototype = {
 		q.open(mode, url, false);
 		q.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 		this.RequestObjectDisableCache(q);
-		q.send(data);
+		try {
+			q.send(data);
+		} catch(e){
+			this.env.debug("AI_NetworkManager:sendRequestSync:Network Error.\n");
+			return null;
+		}
 		if(q.status == 0){
 			alert("ネットワークにアクセスできません。" + q.status + ":" + q.statusText);
 		}else if((200 <= q.status && q.status < 300) || (q.status == 304)){
@@ -74,5 +80,11 @@ AI_NetworkManager.prototype = {
 		q.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 		this.RequestObjectDisableCache(q);
 		q.send(data);
+	},
+	sendRequestThroughPHPSync: function(mode, url, data){
+		var sendURL = this.PHPExtPath;
+		sendURL += "?cmd=httpreq&url=";
+		sendURL += encodeURIComponent(url);
+		return this.sendRequestSync("GET", sendURL);
 	},
 }

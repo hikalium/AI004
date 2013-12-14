@@ -23,7 +23,7 @@ AI_WordRecognition.prototype = {
 				}
 			}
 			if(cLen > 0){
-				cList.pushUnique(new AI_CandidateWordTag(iStr.substr(0, cLen))).wordCount++;
+				cList.pushUnique(new AI_CandidateWordTag(iStr.substr(0, cLen).trim())).wordCount++;
 			}
 		}
 		//フィルター
@@ -31,6 +31,7 @@ AI_WordRecognition.prototype = {
 		this.filterCandidateWordList01(cList, 2);
 		//追加
 		this.mergeCandidateWordList(cList);
+		
 	},
 	appendCandidateWordList: function(strTag){
 		var s = this.env.memory.candidateWordList.isIncluded(strTag, function(a, b){ return (a.str == b.str); });
@@ -47,10 +48,12 @@ AI_WordRecognition.prototype = {
 		}
 	},
 	debugShowCandidateWordList: function(){
-		var c = this.env.memory.candidateWordList;
+		var c = (new Array()).concat(this.env.memory.candidateWordList);
+		c.reverse();
 		this.env.debug("candidateWordList:" + c.length + "\n");
+		
 		for(var i = 0, iLen = c.length; i < iLen; i++){
-			this.env.debug(c[i].wordCount.toString() + " :" + c[i].wordLevel.toString() + " :" + c[i].str + "\n");
+			this.env.debug((i + 1) + ":\t" + c[i].wordCount.toString() + ":\t" + c[i].wordLevel.toString() + ":\t" + c[i].str + "\n");
 		}
 		this.env.debug("candidateWordList end\n");
 	},

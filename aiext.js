@@ -92,6 +92,46 @@ Array.prototype.isIncluded = function(obj, fEqualTo){
 	}
 	return false;
 }
+Array.prototype.search2DLineIndex = function(column, obj, fEqualTo){
+	//与えられた配列を二次元配列として解釈し
+	//array[n][column]がobjと等価になる最初の行nを返す。
+	//fEqualToは省略可能で、評価関数fEqualTo(array[n][column], obj)を設定する。
+	//該当する行がなかった場合、戻り値はundefinedとなる。
+	if(fEqualTo == undefined){
+		for(var i = 0, iLen = this.length; i < iLen; i++){
+			if(this[i] instanceof Array && this[i][column] == obj){
+				return i;
+			}
+		}
+	} else{
+		for(var i = 0, iLen = this.length; i < iLen; i++){
+			if(this[i] instanceof Array && fEqualTo(this[i][column], obj)){
+				return i;
+			}
+		}
+	}
+	return undefined;
+}
+Array.prototype.search2DObject = function(searchColumn, retvColumn, obj, fEqualTo){
+	//与えられた配列を二次元配列として解釈し
+	//array[n][searchColumn]がobjと等価になる最初の行のオブジェクトarray[n][retvColumn]を返す。
+	//fEqualToは省略可能で、評価関数fEqualTo(array[n][searchColumn], obj)を設定する。
+	//該当する行がなかった場合、戻り値はundefinedとなる。
+	if(fEqualTo == undefined){
+		for(var i = 0, iLen = this.length; i < iLen; i++){
+			if(this[i] instanceof Array && this[i][searchColumn] == obj){
+				return this[i][retvColumn];
+			}
+		}
+	} else{
+		for(var i = 0, iLen = this.length; i < iLen; i++){
+			if(this[i] instanceof Array && fEqualTo(this[i][searchColumn], obj)){
+				return this[i][retvColumn];
+			}
+		}
+	}
+	return undefined;
+}
 Array.prototype.pushUnique = function(obj, fEqualTo){
 	//値が既に存在する場合は追加しない。評価関数fEqualTo(array[i], obj)を設定することができる。
 	//結果的に配列内にあるオブジェクトが返される。
@@ -123,7 +163,6 @@ Array.prototype.stableSort = function(f){
 		delete this[i].__id__;
 	}
 }
-
 Array.prototype.splitByArray = function(separatorList){
 	//Array中の文字列をseparatorList内の文字列でそれぞれで分割し、それらの文字列が含まれた配列を返す。
 	var retArray = new Array();
@@ -134,7 +173,6 @@ Array.prototype.splitByArray = function(separatorList){
 	
 	return retArray;
 }
-
 Array.prototype.logAsHexByte = function(){
 	//十六進バイト列としてデバッグ出力する。
 	var ds = "";
@@ -143,7 +181,6 @@ Array.prototype.logAsHexByte = function(){
 	}
 	console.log(ds);
 }
-
 Array.prototype.stringAsHexByte = function(){
 	//十六進バイト列として文字列を得る
 	var ds = "";
@@ -151,6 +188,20 @@ Array.prototype.stringAsHexByte = function(){
 		ds += ("00" + this[i].toString(16).toUpperCase()).slice(-2);
 	}
 	return ds;
+}
+Array.prototype.logEachPropertyNamed = function(pname, logfunc, suffix){
+	//Arrayのすべての各要素pについて、プロパティp[pname]を文字列としてlogfuncの引数に渡して呼び出す。
+	//suffixは各文字列の末尾に追加する文字列。省略時は改行文字となる。
+	//logfuncは省略時はconsole.logとなる。
+	if(logfunc === undefined){
+		logfunc = function(s){ console.log(s); };
+	}
+	if(suffix === undefined){
+		suffix = "\n";
+	}
+	for(var i = 0, iLen = this.length; i < iLen; i++){
+		logfunc(this[i][pname] + suffix);
+	}
 }
 
 //文字列関連

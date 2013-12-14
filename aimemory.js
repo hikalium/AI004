@@ -5,6 +5,7 @@ function AI_Memory(env){
 	this.root = new Array();
 	//サブリスト
 	this.candidateWordList = new Array();
+	this.wordList = new Array();
 }
 AI_Memory.prototype = {
 	saveMemory: function(){
@@ -40,12 +41,15 @@ AI_Memory.prototype = {
 			q = d.type;
 			if(q == AI_MemoryTag.prototype.Type_CandidateWord){
 				t = new AI_CandidateWordTag();
+			} else if(q == AI_MemoryTag.prototype.Type_Word){
+				t = new AI_WordTag();
 			} else{
 				t = new AI_MemoryTag();
 			}
 			AI_MemoryTag.prototype.loadFromMemoryData.call(t, d);
 			this.appendMemoryTag(t);
 		}
+		this.verifyMemoryStructure();
 		this.env.debug("Memory loading done.\n" + this.root.length + " tags exist.\n");
 	},
 	appendMemoryTag: function(tag){
@@ -61,9 +65,54 @@ AI_Memory.prototype = {
 		if(tag instanceof AI_CandidateWordTag){
 			this.candidateWordList.push(tag);
 		}
+		if(tag instanceof AI_WordTag){
+			this.wordList.push(tag);
+		}
 	},
+	/*
+	appendMemoryTagFromString: function(str){
+		//retv:isAppended
+		var d;
+		var q;
+		var t;
+		try{
+			d = eval(str);
+		} catch(e){
+			this.env.debug(""i + ": " + e + "\n");
+			return false;
+		}
+		if(d === undefined){
+			return false;
+		}
+		q = d.type;
+		if(q == AI_MemoryTag.prototype.Type_CandidateWord){
+			t = new AI_CandidateWordTag();
+		} else{
+			t = new AI_MemoryTag();
+		}
+		AI_MemoryTag.prototype.loadFromMemoryData.call(t, d);
+		this.appendMemoryTag(t);
+	},
+	*/
 	removeMemoryTagByObject: function(obj){
 		this.root.removeAnObject(obj);
 		this.candidateWordList.removeAnObject(obj);
+		this.wordList.removeAnObject(obj);
 	},
+	verifyMemoryStructure: function(){
+		//メモリ構造検査・修復
+		//単語が単語候補に残っていた場合は単語候補から削除
+		for(var i = 0, iLen = this.wordList.length; i < iLen; i++){
+			var w = this.wordList[i].str;
+			for(var j = 0, jLen = this.candidateWordList.length; j < jLen; j++){
+				if(this.candidateWordList[j].str == w){
+					this.env.debug("Word duplicated in CWL. Remove.\n");
+					this.removeMemoryTagByObject(this.candidateWordList[j]);
+					j--;
+					jLen--;
+				}
+			}
+		}	
+		this.env.debug("Memory verifying done.\n");
+	}
 }
