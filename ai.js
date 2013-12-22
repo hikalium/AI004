@@ -57,11 +57,12 @@ function AI(messageBoxDOMObject, debugBoxDOMObject){
 }
 AI.prototype = {
 	UUIDStrLen: 36,
-	UUID_Mode_Standard: "1186f6f2-c7c4-4532-8f8f-c7dea883825f", 
-	UUID_Mode_ReadMemory: "42e11880-62b8-46ea-a1c4-481264d4440d",
-	UUID_Mode_SaveMemory: "52360c62-6a8a-4f6e-8bdd-43381996e996",
-	UUID_Mode_InternalConsole: "4ca6ed1a-e62e-470b-9d7b-e332f709e48f",
-	UUID_Mode_CompileELCHNOS_OSECPU: "17ddde48-7d4c-498f-98d8-3e73f8845028",
+	UUID_Mode_Standard:					"1186f6f2-c7c4-4532-8f8f-c7dea883825f",
+	UUID_Mode_ReadMemory:				"42e11880-62b8-46ea-a1c4-481264d4440d",
+	UUID_Mode_SaveMemory:				"52360c62-6a8a-4f6e-8bdd-43381996e996",
+	UUID_Mode_InternalConsole:			"4ca6ed1a-e62e-470b-9d7b-e332f709e48f",
+	UUID_Mode_CompileELCHNOS_OSECPU:	"17ddde48-7d4c-498f-98d8-3e73f8845028",
+	UUID_Meaning_UndefinedString :		"f9080ed9-1fd4-4982-a979-092d1852298a",
 	sendToAI: function(str, srctype){
 		var p, strbaseindex;
 		
@@ -174,7 +175,6 @@ AI.prototype = {
 		
 		this.debug("input:[" + str + "]\n");
 		this.input.appendInput(str, srctype);
-		this.think.inputting = true;
 		
 		this.debug("**** End Processing (Standard) ****\n");
 	},

@@ -1,6 +1,7 @@
 function AI_IOManager(env){
 	this.env = env;
 	this.lastSentenceSourceType = undefined;
+	// User, File, Web
 }
 AI_IOManager.prototype = {
 	//http://www.atmarkit.co.jp/ait/articles/1112/16/news135_2.html
@@ -34,11 +35,11 @@ AI_Input.prototype = {
 	appendInput: function(input, srctype){
 		//inputはStringとArrayが使用できる
 		var sList = input.splitByArray(this.sentenceSeparator);
+		console.log(sList);
 		this.sentenceList.push([srctype]);
 		this.sentenceList = this.sentenceList.concat(sList);
 	},
 	getSentence: function(){
-		//改行のみの文は破棄
 		for(;;){
 			if(this.sentenceList.length <= 0){
 				return undefined;
@@ -50,11 +51,10 @@ AI_Input.prototype = {
 				continue;
 			}
 			retv = retv.trim();
-			if(retv != ""){
-				break;
-			}
+			break;
 		}
 		//ここで単語候補抽出を行っておく
+		//改行のみの文は行わない
 		this.env.wordRecognition.slideLookUpCandidateWordByHistory(retv);
 		//
 		this.appendHistory(retv);

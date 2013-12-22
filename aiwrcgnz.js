@@ -29,6 +29,7 @@ AI_WordRecognition.prototype = {
 		//フィルター
 		this.filterCandidateWordList00(cList);
 		this.filterCandidateWordList01(cList, 2);
+		this.filterCandidateWordList03(cList);
 		//追加
 		this.mergeCandidateWordList(cList);
 		
@@ -48,9 +49,9 @@ AI_WordRecognition.prototype = {
 		}
 	},
 	debugShowCandidateWordList: function(){
-		var c = (new Array()).concat(this.env.memory.candidateWordList);
+		var c = this.env.memory.candidateWordList.copy();
 		c.reverse();
-		this.env.debug("candidateWordList:" + c.length + "\n");
+		this.env.debug("candidateWordList:" + c.length + "\n #:wCount:level:str\n");
 		
 		for(var i = 0, iLen = c.length; i < iLen; i++){
 			this.env.debug((i + 1) + ":\t" + c[i].wordCount.toString() + ":\t" + c[i].wordLevel.toString() + ":\t" + c[i].str + "\n");
@@ -92,7 +93,6 @@ AI_WordRecognition.prototype = {
 	},
 	filterCandidateWordList01:function(cList, minLen){
 		//01:minLenに満たない文字数の候補を削除
-		//削除処理
 		var iLen = cList.length;
 		for(var i = 0; i < iLen; i++){
 			if(cList[i].str.length < minLen){
@@ -104,10 +104,20 @@ AI_WordRecognition.prototype = {
 	},
 	filterCandidateWordList02:function(cList, minCount){
 		//02:minCountに満たない出現回数の候補を削除
-		//削除処理
 		var iLen = cList.length;
 		for(var i = 0; i < iLen; i++){
 			if(cList[i].wordCount < minCount){
+				cList.removeByIndex(i);
+				i--;
+				iLen--;
+			}
+		}
+	},
+	filterCandidateWordList03: function(cList){
+		//03:すでに単語と判明している候補を削除
+		var iLen = cList.length;
+		for(var i = 0; i < iLen; i++){
+			if(this.env.memory.getUUIDFromWord(cList[i].str) == this.env.UUID_Meaning_UndefinedString){
 				cList.removeByIndex(i);
 				i--;
 				iLen--;
@@ -157,5 +167,19 @@ AI_WordRecognition.prototype = {
 		for(var i = 0; i < iLen; i++){
 			this.computeWordLevel(this.env.memory.candidateWordList[i]);
 		}
-	}
+	},
+	splitByWord: function(s){
+		var separatorList = this.env.memory.wordList.propertiesNamed("str");
+		separatorList.stableSort(function(a, b){
+			return a.length - b.length;
+		});
+		return s.splitByArraySeparatorSeparated(separatorList);
+	},
+	getUUIDListFromSeparatedString: function(separated){
+		var retv = new Array();
+		for(var i = 0, iLen = separated.length; i < iLen; i++){
+			retv.push(this.env.memory.getUUIDFromWord(separated[i]));
+		}
+		return retv;
+	},
 }

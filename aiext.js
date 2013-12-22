@@ -173,6 +173,14 @@ Array.prototype.splitByArray = function(separatorList){
 	
 	return retArray;
 }
+Array.prototype.propertiesNamed = function(pName){
+	//Array内の各要素のプロパティpNameのリストを返す。
+	var retArray = new Array();
+	for(var i = 0, iLen = this.length; i < iLen; i++){
+		retArray.push(this[i][pName]);
+	}
+	return retArray;
+}
 Array.prototype.logAsHexByte = function(){
 	//十六進バイト列としてデバッグ出力する。
 	var ds = "";
@@ -202,6 +210,9 @@ Array.prototype.logEachPropertyNamed = function(pname, logfunc, suffix){
 	for(var i = 0, iLen = this.length; i < iLen; i++){
 		logfunc(this[i][pname] + suffix);
 	}
+}
+Array.prototype.copy = function(){
+	return (new Array()).concat(this);
 }
 
 //文字列関連
@@ -248,6 +259,12 @@ String.prototype.splitByArray = function(separatorList){
 		retArray = retArray.concat.apply(retArray, tmpArray);
 	}
 	
+	if(retArray.length == 0){
+		// https://developer.mozilla.org/ja/docs/Web/JavaScript/Reference/Global_Objects/String/split
+		//文字列が空であるとき、split メソッドは、空の配列ではなく、1 つの空文字列を含む配列を返します。
+		retArray.push("");
+	}
+	
 	return retArray;
 }
 
@@ -276,6 +293,12 @@ String.prototype.splitByArraySeparatorSeparated = function(separatorList){
 		}
 		retArray = new Array();
 		retArray = retArray.concat.apply(retArray, tmpArray);
+	}
+	
+	if(retArray.length == 0){
+		// https://developer.mozilla.org/ja/docs/Web/JavaScript/Reference/Global_Objects/String/split
+		//文字列が空であるとき、split メソッドは、空の配列ではなく、1 つの空文字列を含む配列を返します。
+		retArray.push("");
 	}
 	
 	return retArray;
@@ -323,6 +346,12 @@ String.prototype.splitByArraySeparatorSeparatedLong = function(separatorList){
 		checkArray = new Array();
 		retArray = retArray.concat.apply(retArray, tmpArray);
 		checkArray = checkArray.concat.apply(checkArray, tmpCheckArray);
+	}
+	
+	if(retArray.length == 0){
+		// https://developer.mozilla.org/ja/docs/Web/JavaScript/Reference/Global_Objects/String/split
+		//文字列が空であるとき、split メソッドは、空の配列ではなく、1 つの空文字列を含む配列を返します。
+		retArray.push("");
 	}
 	
 	return retArray;

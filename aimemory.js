@@ -6,15 +6,21 @@ function AI_Memory(env){
 	//サブリスト
 	this.candidateWordList = new Array();
 	this.wordList = new Array();
+	this.patternList = new Array();
 }
 AI_Memory.prototype = {
+
 	saveMemory: function(){
 		var m = this.env.IOManager;
 		var s = "#" + this.env.UUID_Mode_ReadMemory + "\n";
 		var cl = this.root;
+		var k;
 		for(var i = 0, iLen = cl.length; i < iLen; i++){
 			if(cl[i] instanceof AI_MemoryTag){
-				s += cl[i].parseToStringData() + "\n";
+				k = cl[i].parseToStringData();
+				if(k !== undefined){
+					s += k + "\n";
+				}
 			}
 		}
 		var d = new Blob([s]);
@@ -53,21 +59,38 @@ AI_Memory.prototype = {
 		this.env.debug("Memory loading done.\n" + this.root.length + " tags exist.\n");
 	},
 	appendMemoryTag: function(tag){
-		//同じUUIDのタグがあった場合はデバッグ表示をして、新たなものに置き換える。
+		//同じUUIDのタグがあった場合はデバッグ表示をして、追加しようとしているものに置き換える。
+		//ただし、初期データに入っているものは警告を発さず上書きする。
 		var s = this.root.isIncluded(tag, function(a, b){ return (a.uuid == b.uuid); });
-		if(s){
-			this.env.debug("appendMemoryTag: duplicated UUID " + tag.uuid + ", overwritten.\n");
-			this.removeMemoryTagByObject(s);
-		}
-		//ルートに追加
-		this.root.push(tag);
-		//タグに合わせてそれぞれのサブリストに分配
+		
+		//タグに合わせて追加条件を満たしているか確認し、それぞれのサブリストに分配
 		if(tag instanceof AI_CandidateWordTag){
 			this.candidateWordList.push(tag);
 		}
 		if(tag instanceof AI_WordTag){
+			if(this.wordList.isIncluded(tag, function(a, b){ return ((a.str == b.str) && (a !== s)); })){
+				this.env.debug("appendMemoryTag: Duplicated word [" + tag.str + "].\n");
+				return;
+			}
+			if(tag.str == undefined || tag.str.length == 0){
+				this.env.debug("appendMemoryTag: Invalid word [" + tag.str + "].\n");
+				return;
+			}
 			this.wordList.push(tag);
 		}
+		if(tag instanceof AI_PatternTag){
+			this.patternList.push(tag);
+		}
+		
+		//すでにあった重複UUIDの削除
+		if(s){
+			if(s.isBootstrap === undefined){
+				this.env.debug("appendMemoryTag: duplicated UUID " + tag.uuid + ", overwritten.\n");
+			}
+			this.removeMemoryTagByObject(s);
+		}
+		//ルートに追加
+		this.root.push(tag);
 	},
 	/*
 	appendMemoryTagFromString: function(str){
@@ -114,5 +137,12 @@ AI_Memory.prototype = {
 			}
 		}	
 		this.env.debug("Memory verifying done.\n");
-	}
+	},
+	getUUIDFromWord: function(str){
+		var t = this.wordList.isIncluded(str, function(a, b){ return a.str == b; });
+		if(!t){
+			return this.env.UUID_Meaning_UndefinedString;
+		}
+		return t.uuid;
+	},
 }

@@ -33,7 +33,7 @@ function sendToAI(e){
 	//Enterで送信
 	//Shift+Enterで改行
 	if (e.keyCode == 13){ // Enterが押された
-		if(!e.shiftKey && inputBoxObj.value.replace(/\s/g, "").length > 0){
+		if(!e.shiftKey/* && inputBoxObj.value.replace(/\s/g, "").length > 0*/){
 			e.preventDefault();
 			mainAI.sendToAI(inputBoxObj.value, "User");
 			inputBoxObj.value = '';

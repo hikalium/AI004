@@ -1,8 +1,14 @@
 function AI_MemoryTag(typeUUIDStr){
+	//保存対象
 	this.uuid = null;
-	this.initUUID();
 	this.type = typeUUIDStr;
 	this.createdDate = new Date();
+	
+	//内部データ（保存されない）
+	//this.isBootstrap = false;	//上書き警告抑制用
+	
+	//初期化
+	this.initUUID();
 }
 AI_MemoryTag.prototype = {
 	Type_CandidateWord: "2fba8fc1-2b9a-46e0-8ade-455c0bd30637",

@@ -46,3 +46,33 @@ var AI_WordTag = function(str, uuid){
 		this.wordCount = data.c;
 	},
 });
+
+var AI_PatternTag = function(pattern, uuid, func){
+	// p.func(this.env, separated, separated_UUID);
+	if(pattern){
+		this.pattern = pattern;
+	}
+	if(uuid){
+		this.uuid = uuid;
+	}
+	if(func){
+		this.func = func;
+	}
+}.extend(AI_MemoryTag, {
+	parseToStringData: function(){
+		
+	},
+});
+
+var AI_MeaningTag = function(uuid, description){
+	if(description){
+		this.description = description;
+	}
+	if(uuid){
+		this.uuid = uuid;
+	}
+}.extend(AI_MemoryTag, {
+	parseToStringData: function(){
+		
+	},
+});
