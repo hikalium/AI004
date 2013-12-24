@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=9">
+<meta charset="UTF-8">
+<title>Mind Graph Canvas</title>
+<style type="text/css">
+	h1, h2, h3 {
+		margin:0px;
+	}
+	body, textarea {
+		font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+		font-size: 14px;
+		line-height: 1.2;
+	}
+</style>
+<script type="text/javascript" src="./header.js" charset="UTF-8"></script>
+<script type="text/javascript">
+
+var mgmain;
+
+onload = function() {
+	var c = document.getElementById("mainCanvas");
+	mgmain = new MGCanvas(c);
+	
+	mgmain.setGraph([[
+		"A","B","C","D","E","F",
+		],[
+		["D", "F"],
+		["D", "E"],
+		["C", "E"],
+		["B", "E"],
+		["B", "C"],
+		["A", "E"],
+		["A", "B"],
+	]]);
+}
+</script>
+</head>
+<body>
+<h1>Mind Graph Canvas</h1>
+<canvas id="mainCanvas" width="1024" height="768" style="border:1px solid #000000;"></canvas>
+</body>
+</html>
