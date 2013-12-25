@@ -41,16 +41,49 @@ MGCanvas.prototype = {
 			this.edgeList.push(new MGEdge(this, p[i][2], n(p[i][0]), n(p[i][1])));
 		}
 	},
+	bringToCenter: function(){
+		var g = new Point2D(0, 0);
+		var p;
+		p = this.nodeList;
+		for(var i = 0, iLen = p.length; i < iLen; i++){
+			g.x += p[i].position.x;
+			g.y += p[i].position.y;
+		}
+		g.x /= p.length;
+		g.y /= p.length;
+		for(var i = 0, iLen = p.length; i < iLen; i++){
+			p[i].position.x -= g.x;
+			p[i].position.y -= g.y;
+		}
+	},
 	tick: function(){
 		var p;
 		var t;
 		var dr;
+		var n = null;
+		var nMax = 0;
+		var nTemp;
 		
 		this.tickCount++;
 		//console.log(this.tickCount);
 		
 		//
-		// Moving
+		// Check
+		//
+		p = this.nodeList;
+		for(var i = 0, iLen = p.length; i < iLen; i++){
+			nTemp = this.getVectorLength(p[i].vector);
+			if(nMax < nTemp){
+				n = p[i];
+				nMax = nTemp;
+			}
+		}
+		if(n){
+			n.ignoreEdgeRepulsion = 10;
+		}
+		
+		//
+		// Move
 		//
 		p = this.nodeList;
 		for(var i = 0, iLen = p.length; i < iLen; i++){
@@ -113,16 +146,95 @@ MGCanvas.prototype = {
 		this.context.closePath();
 		this.context.stroke();
 	},
+	drawText: function(text, x, y){
+		//背景をfillStyle
+		//前景をstrokeStyleで塗りつぶした文字列を描画する
+		//塗りつぶし高さは20px固定
+		//座標は文字列の左上の座標となる
+		var textsize = this.context.measureText(text);
+		this.context.fillRect(x, y, textsize.width, 20);
+		this.context.save();
+		this.context.fillStyle = this.context.strokeStyle;
+		//fillText引数の座標は文字列の左下！
+		this.context.fillText(text, x, y + 20 - 1);
+		this.context.restore();
+	},
 	getVectorLengthP: function(p, q){
-		var d = new Point2D(p.x - q.x, p.y - q.y);
-		return Math.sqrt(d.x * d.x + d.y * d.y);
+		return this.getVectorLength(this.getVectorP(p, q));
+	},
+	getVectorLength: function(a){
+		return Math.sqrt(a.x * a.x + a.y * a.y);
+	},
+	getVectorP: function(p, q){
+		return new Point2D(q.x - p.x, q.y - p.y);
 	},
 	getUnitVectorP: function(p, q){
-		var e = new Point2D(q.x - p.x, q.y - p.y);
-		var l = Math.sqrt(e.x * e.x + e.y * e.y);
-		e.x /= l;
-		e.y /= l;
-		return e;
+		var e = this.getVectorP(p, q);
+		return this.getUnitVector(e);
+	},
+	getUnitVector: function(a){
+		var l = Math.sqrt(a.x * a.x + a.y * a.y);
+		a.x /= l;
+		a.y /= l;
+		return a;
+	},
+	getNormalUnitVectorSideOfP: function(a, b, p){
+		//直線ab上にない点pが存在する側へ向かう単位法線ベクトルを返す。
+		return this.getUnitVector(this.getNormalVectorSideOfP(a, b, p));
+	},
+	getNormalVectorSideOfP: function(a, b, p){
+		//直線ab上にない点pが存在する側へ向かう法線ベクトルを返す。
+		//pがab上にある場合は零ベクトルとなる。
+		var n = this.getVectorP(a, b);
+		var t = n.x;
+		var i;
+		n.x = -n.y;
+		n.y = t;
+		
+		i = this.getInnerVector2D(n, this.getVectorP(a, p));
+		if(i < 0){
+			//この法線ベクトルとapの向きが逆なので反転する。
+			n.x = -n.x;
+			n.y = -n.y;
+		} else if(i == 0){
+			n.x = 0;
+			n.y = 0;
+		}
+		return n;
+	},
+	getExteriorVector2D: function(a, b){
+		return a.x * b.y - a.y * b.x;
+	},
+	getInnerVector2D: function(a, b){
+		return a.x * b.x + a.y * b.y;
+	},
+	getDistanceDotAndLineP: function(p, a, b){
+		// http://www.sousakuba.com/Programming/gs_dot_line_distance.html
+		var ab;
+		var ap;
+		var s;
+		var l;
+		var d;
+		
+		ab = this.getVectorP(a, b);
+		ap = this.getVectorP(a, p);
+		
+		s = Math.abs(this.getExteriorVector2D(ab, ap));
+		l = this.getVectorLengthP(a, b);
+		d = (s / l);
+		
+		s = this.getInnerVector2D(ap, ab);
+		if(s < 0){
+			//線分の範囲外なので端点aからの距離に変換
+			//端点から垂線の足までの距離
+			l = - (s / l);
+			d = Math.sqrt(d * d + l * l);
+		} else if(s > l * l){
+			//同様に端点bからの距離に変換
+			l = s / l;
+			d = Math.sqrt(d * d + l * l);
+		}
+		return d;
 	},
 	initGraphicContext: function(newCanvas){
 		this.canvas = newCanvas;
@@ -144,14 +256,69 @@ function MGNode(env, identifier){
 	this.size = 10;
 	//ランダムな初期ベクトルをもつ。
 	this.vector = new Point2D(Math.random() * 2 - 1, Math.random() * 2 - 1);
+	this.friction = (100 - 7) / 100;
+	this.repulsionLengthNode = 100;
+	this.repulsionLengthEdge = 75;
+	this.ignoreEdgeRepulsion = 0;
 }
 MGNode.prototype = {
 	draw: function(){
 		this.env.drawCircle(this.position.x, this.position.y, this.size);
+		this.env.drawText(this.identifier.toString(), this.position.x + 10, this.position.y + 10);
 	},
 	tick: function(){
+		var e;
+		var p;
+		var l;
+		var q;
 		this.position.x += this.vector.x;
 		this.position.y += this.vector.y;
+		this.vector.x *= this.friction;
+		this.vector.y *= this.friction;
+		
+		if(!this.ignoreEdgeRepulsion){
+			//node
+			//距離の近い点同士には斥力が働くとする。
+			p = this.env.nodeList;
+			for(var i = 0, iLen = p.length; i < iLen; i++){
+				var q = this.env.nodeList[i];
+				if(q != this){
+					l = this.env.getVectorLengthP(this.position, q.position);
+					if(l < this.repulsionLengthNode && l != 0){
+						e = this.env.getUnitVectorP(q.position, this.position);
+						e.x *= this.repulsionLengthNode / l;
+						e.y *= this.repulsionLengthNode / l;
+						this.vector.x += e.x;
+						this.vector.y += e.y;
+					}
+				}
+			}
+			//edge
+			//自分を端点に含まないエッジとの距離が近い場合、そのエッジから遠ざかろうとする。
+			p = this.env.edgeList;
+			for(var i = 0, iLen = p.length; i < iLen; i++){
+				var q = this.env.edgeList[i];
+				if(q.node0 != this && q.node1 != this){
+					l = this.env.getDistanceDotAndLineP(this.position, q.node0.position, q.node1.position);
+					if(l < this.repulsionLengthEdge && l != 0){
+						if(l < 1){
+							l = 1;
+						}
+						e = this.env.getNormalUnitVectorSideOfP(q.node0.position, q.node1.position, this.position);
+						e.x *= this.repulsionLengthEdge / l;
+						e.y *= this.repulsionLengthEdge / l;
+						this.vector.x += e.x;
+						this.vector.y += e.y;
+						q.node0.vector.x -= e.x / 2;
+						q.node0.vector.y -= e.y / 2;
+						q.node1.vector.x -= e.x / 2;
+						q.node1.vector.y -= e.y / 2;
+					}
+				}
+			}
+		} else{
+			this.ignoreEdgeRepulsion--;
+		}
 	},
 }
 
@@ -160,7 +327,7 @@ function MGEdge(env, identifier, node0, node1){
 	this.identifier = identifier;
 	this.node0 = node0;
 	this.node1 = node1;
-	this.freeLength = 100;
+	this.freeLength = 250;
 }
 MGEdge.prototype = {
 	draw: function(){

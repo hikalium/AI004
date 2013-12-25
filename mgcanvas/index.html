@@ -23,6 +23,7 @@ onload = function() {
 	var c = document.getElementById("mainCanvas");
 	mgmain = new MGCanvas(c);
 	
+	/*
 	mgmain.setGraph([[
 		"A","B","C","D","E","F",
 		],[
@@ -34,11 +35,80 @@ onload = function() {
 		["A", "E"],
 		["A", "B"],
 	]]);
+	*/
+	/*
+	mgmain.setGraph([[
+		"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P",
+		],[
+		["A", "B"],
+		["A", "C"],
+		["A", "D"],
+		["A", "E"],
+		["A", "F"],
+		["A", "G"],
+		["A", "H"],
+		["A", "I"],
+		["A", "J"],
+		["A", "K"],
+		["A", "L"],
+		["A", "M"],
+		["A", "N"],
+		["A", "O"],
+		["A", "P"],
+	]]);
+	*/
+	/*
+	mgmain.setGraph([[
+		"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P",
+		],[
+		["A", "B"],
+		["B", "C"],
+		["C", "D"],
+		["D", "E"],
+		["E", "F"],
+		["F", "G"],
+		["G", "H"],
+		["A", "I"],
+		["A", "J"],
+		["A", "K"],
+		["A", "L"],
+		["A", "M"],
+		["A", "N"],
+		["A", "O"],
+		["A", "P"],
+	]]);
+	*/
+	
+	//Petersen Graph
+	mgmain.setGraph([[
+		"A","B","C","D","E","F","G","H","I","J",
+		],[
+		["A", "B"],
+		["B", "C"],
+		["C", "D"],
+		["D", "E"],
+		["E", "A"],
+		//
+		["A", "F"],
+		["B", "G"],
+		["C", "H"],
+		["D", "I"],
+		["E", "J"],
+		//
+		["H", "F"],
+		["I", "G"],
+		["J", "H"],
+		["F", "I"],
+		["G", "J"],
+	]]);
+	
 }
 </script>
 </head>
 <body>
 <h1>Mind Graph Canvas</h1>
 <canvas id="mainCanvas" width="1024" height="768" style="border:1px solid #000000;"></canvas>
+<br />
+<button onclick="mgmain.bringToCenter();">Center</button>
 </body>
 </html>
