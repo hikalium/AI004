@@ -6,6 +6,7 @@ function AI_Memory(env){
 	//サブリスト
 	this.candidateWordList = new Array();
 	this.wordList = new Array();
+	this.wordListLastModifiedDate = new Date();
 	this.patternList = new Array();
 }
 AI_Memory.prototype = {
@@ -77,6 +78,7 @@ AI_Memory.prototype = {
 				return;
 			}
 			this.wordList.push(tag);
+			this.wordListLastModifiedDate = new Date();
 		}
 		if(tag instanceof AI_PatternTag){
 			this.patternList.push(tag);
@@ -120,7 +122,9 @@ AI_Memory.prototype = {
 	removeMemoryTagByObject: function(obj){
 		this.root.removeAnObject(obj);
 		this.candidateWordList.removeAnObject(obj);
-		this.wordList.removeAnObject(obj);
+		if(this.wordList.removeAnObject(obj)){
+			this.wordListLastModifiedDate = new Date();
+		}
 	},
 	verifyMemoryStructure: function(){
 		//メモリ構造検査・修復

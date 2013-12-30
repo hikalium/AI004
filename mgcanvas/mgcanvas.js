@@ -24,6 +24,9 @@ function MGCanvas(canvasDOMObj){
 		//console.log("x:" + loc.x);
 		//console.log("y:" + loc.y);
 	};
+	//ファイルの入力を受け付ける場合はコメントを外す
+	//this.canvas.addEventListener('dragover', function(evt){ return that.handleDragOver(evt); }, false);
+	//this.canvas.addEventListener('drop', function(evt){ return that.handleFileSelect(evt); }, false);
 }
 MGCanvas.prototype = {
 	setGraph: function(gArray){
@@ -246,6 +249,35 @@ MGCanvas.prototype = {
 		var h = this.canvas.height / 2;
 		this.context.translate(w, h);
 		this.displayRect = new Rectangle(-w, -h, this.canvas.width, this.canvas.height);
+	},
+	loadAIMemory: function(str){
+		console.log(str);
+	},
+	// http://www.html5rocks.com/ja/tutorials/file/dndfiles/
+	handleFileSelect: function(evt){
+		evt.stopPropagation();
+		evt.preventDefault();
+	
+		var files = evt.dataTransfer.files; // FileList object.
+		var that = this;
+		
+		// files is a FileList of File objects. List some properties.
+		var output = [];
+		for(var i = 0, f; f = files[i]; i++){
+			var r = new FileReader();
+			r.onload = (function(file){
+				return function(e){
+					//mainAI.sendTextFromFileToAI(r.result, file.name, file.lastModifiedDate, "File");
+					that.loadAIMemory(r.result);
+				}
+			})(f);
+			r.readAsText(f);
+		}
+	},
+	handleDragOver: function(evt){
+		evt.stopPropagation();
+		evt.preventDefault();
+		evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
 	},
 }
 

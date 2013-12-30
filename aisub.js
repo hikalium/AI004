@@ -23,7 +23,7 @@ function AI_Input(env){
 	this.sentenceList = new Array();
 }
 AI_Input.prototype = {
-	maxHistoryLength: 16,
+	maxHistoryLength: 32,
 	sentenceSeparator: [
 		"。",
 		"！",
@@ -34,7 +34,12 @@ AI_Input.prototype = {
 	],
 	appendInput: function(input, srctype){
 		//inputはStringとArrayが使用できる
-		var sList = input.splitByArray(this.sentenceSeparator);
+		var sList;
+		if(srctype != "User"){
+			sList = input.splitByArray(this.sentenceSeparator);
+		} else{
+			sList = [input];
+		}
 		console.log(sList);
 		this.sentenceList.push([srctype]);
 		this.sentenceList = this.sentenceList.concat(sList);

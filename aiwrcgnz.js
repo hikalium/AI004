@@ -1,5 +1,7 @@
 function AI_WordRecognition(env){
 	this.env = env;
+	this.wordListCache = null;
+	this.wordListCacheLastModifiedDate = new Date();
 }
 AI_WordRecognition.prototype = {
 	slideLookUpCandidateWordByHistory: function(input){
@@ -117,7 +119,7 @@ AI_WordRecognition.prototype = {
 		//03:すでに単語と判明している候補を削除
 		var iLen = cList.length;
 		for(var i = 0; i < iLen; i++){
-			if(this.env.memory.getUUIDFromWord(cList[i].str) == this.env.UUID_Meaning_UndefinedString){
+			if(this.env.memory.getUUIDFromWord(cList[i].str) != this.env.UUID_Meaning_UndefinedString){
 				cList.removeByIndex(i);
 				i--;
 				iLen--;
@@ -132,6 +134,12 @@ AI_WordRecognition.prototype = {
 	sortCandidateWordListByWordLevel: function(){
 		this.env.memory.candidateWordList.stableSort(function(a, b){
 			return a.wordLevel - b.wordLevel;
+		});
+	},
+	sortWordListByLength: function(){
+		//文字数の大きい方がリストの最初に来るようにする。
+		this.env.memory.wordList.stableSort(function(a, b){
+			return b.str.length - a.str.length;
 		});
 	},
 	computeWordLevel: function(strTag){
@@ -169,11 +177,13 @@ AI_WordRecognition.prototype = {
 		}
 	},
 	splitByWord: function(s){
-		var separatorList = this.env.memory.wordList.propertiesNamed("str");
-		separatorList.stableSort(function(a, b){
-			return a.length - b.length;
-		});
-		return s.splitByArraySeparatorSeparated(separatorList);
+		if(!this.wordListCache || this.wordListCacheLastModifiedDate < this.env.memory.wordListLastModifiedDate){
+			//キャッシュが存在しないか古い場合、元のリストをソートしてからキャッシュを作成
+			this.sortWordListByLength();
+			this.wordListCache = this.env.memory.wordList.propertiesNamed("str");
+			this.wordListCacheLastModifiedDate = new Date();
+		}
+		return s.splitByArraySeparatorSeparatedLong(this.wordListCache);
 	},
 	getUUIDListFromSeparatedString: function(separated){
 		var retv = new Array();

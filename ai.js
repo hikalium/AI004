@@ -63,6 +63,7 @@ AI.prototype = {
 	UUID_Mode_InternalConsole:			"4ca6ed1a-e62e-470b-9d7b-e332f709e48f",
 	UUID_Mode_CompileELCHNOS_OSECPU:	"17ddde48-7d4c-498f-98d8-3e73f8845028",
 	UUID_Meaning_UndefinedString :		"f9080ed9-1fd4-4982-a979-092d1852298a",
+	UUID_Meaning_UndefinedStrings :		"24393cc6-e6c6-4da2-ae19-8e74ff71d390",
 	sendToAI: function(str, srctype){
 		var p, strbaseindex;
 		
@@ -207,6 +208,7 @@ AI.prototype = {
 			this.memory.wordList.logEachPropertyNamed("str", function(s){ that.debug(s); });
 		} else if(str.indexOf("inputFromURL ") == 0){
 			//webページを読み込む
+			//inputFromURL http://www.aozora.gr.jp/cards/000148/files/773_14560.html
 			//inputFromURL http://www.aozora.gr.jp/cards/000035/files/1567_14913.html
 			//inputFromURL http://ja.wikipedia.org/wiki/%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%9A%E3%83%BC%E3%82%B8
 			//inputFromURL http://ja.wikipedia.org/wiki/%E6%9D%B1%E4%BA%AC%E5%AD%A6%E8%8A%B8%E5%A4%A7%E5%AD%A6%E9%99%84%E5%B1%9E%E9%AB%98%E7%AD%89%E5%AD%A6%E6%A0%A1

@@ -22,12 +22,14 @@ function AI_Bootstrap(env){
 	//意味タグ
 	//
 	append(m(env.UUID_Meaning_UndefinedString, "未定義文字列"));
+	append(m(env.UUID_Meaning_UndefinedStrings, "未定義文字列を含む複数の文字列"));
 	
 	//
 	//パターンタグ
 	//
 	
 	//単語教示
+	/*
 	append(p([
 			env.UUID_Meaning_UndefinedString,
 			wid("は"),
@@ -45,7 +47,28 @@ function AI_Bootstrap(env){
 			}
 		}
 	));
-	
+	*/
+	append(p(
+		function(separated, separated_UUID){
+			if(separated.length < 5){
+				return false;
+			}
+			var a = separated.slice(-4);
+			
+			return (a.join("") == "は単語です。");
+		},
+		"72d5f5b2-7943-4ea0-8a91-b2c84ed856f6", 
+		function(env, separated, UUIDList){
+			var a = separated.slice(0, -4).join("");
+			if(env.memory.getUUIDFromWord(a) == env.UUID_Meaning_UndefinedString){
+				env.message("「" + a + "」は単語なんですね！\n");
+				env.memory.appendMemoryTag(new AI_WordTag(a));
+				env.message(env.memory.wordList.length + "個目の単語を登録しました！\n");
+			} else{
+				env.message("「" + a + "」が単語なのは知ってますよ…。\n");
+			}
+		}
+	));
 	//記憶保存
 	append(p([
 			wid("記憶"),

@@ -52,6 +52,7 @@ AI_Think.prototype = {
 		}
 	},
 	checkPattern: function(separated){
+		//可変長の部分を含むパターンは、
 		var separated_UUID = this.env.wordRecognition.getUUIDListFromSeparatedString(separated);
 		this.env.debug("[\n" + separated_UUID.join("\n") + "\n]\n");
 		var pList = this.env.memory.patternList.copy();
@@ -62,23 +63,28 @@ AI_Think.prototype = {
 		
 		for(var i = 0, iLen = pList.length; i < iLen; i++){
 			var p = pList[i].pattern;
-			//単純完全一致
-			if(separated_UUID.length != p.length){
-				pList.removeByIndex(i);
-				i--;
-				iLen--;
-			} else{
-				for(var j = 0, jLen = separated_UUID.length; j < jLen; j++){
-					if(p[j] != separated_UUID[j]){
-						pList.removeByIndex(i);
-						i--;
-						iLen--;
-						break;
+			if(p instanceof Function){
+				if(pList[i].pattern(separated, separated_UUID)){
+					continue;
+				}
+			} else if(p instanceof Array){
+				//単純完全一致
+				if(separated_UUID.length == p.length){
+					for(var j = 0, jLen = separated_UUID.length; j < jLen; j++){
+						if(p[j] != separated_UUID[j]){
+							break;
+						}
+					}
+					if(j == jLen){
+						continue;
 					}
 				}
 			}
+			pList.removeByIndex(i);
+			i--;
+			iLen--;
 		}
-		
+		//マッチしたパターンに設定された関数の呼び出し
 		for(var i = 0, iLen = pList.length; i < iLen; i++){
 			var p = pList[i];
 			if(p.func){
