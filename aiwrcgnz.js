@@ -45,10 +45,34 @@ AI_WordRecognition.prototype = {
 			this.env.memory.appendMemoryTag(strTag);
 		}
 	},
+	getCandidateWordTagByString: function(str){
+		return this.env.memory.candidateWordList.isIncluded(str, function(a, b){ return (a.str == b); });
+	},
 	mergeCandidateWordList: function(strTagList){
 		for(var i = 0, iLen = strTagList.length; i < iLen; i++){
 			this.appendCandidateWordList(strTagList[i]);
 		}
+	},
+	cleanCandidateWordList: function(){
+		//不要な候補単語を削除
+		//出現回数の少ない候補単語
+		//単語度が1未満の単語(暫定)
+		var iLen = this.env.memory.candidateWordList.length;
+		for(var i = 0; i < iLen; i++){
+			if(this.env.memory.candidateWordList[i].wordCount < 10){
+				this.env.debug("Too small wordCount of candidateWord [" + this.env.memory.candidateWordList[i].str + "]. Removed.\n");
+				this.env.memory.removeMemoryTagByObject(this.env.memory.candidateWordList[i]);
+				i--;
+				iLen--;
+			}
+			if(this.env.memory.candidateWordList[i].wordLevel < 1){
+				this.env.debug("Too small wordLevel of candidateWord [" + this.env.memory.candidateWordList[i].str + "]. Removed.\n");
+				this.env.memory.removeMemoryTagByObject(this.env.memory.candidateWordList[i]);
+				i--;
+				iLen--;
+			}
+		}
+		this.env.memory.candidateWordListLastCleanedDate = new Date();
 	},
 	debugShowCandidateWordList: function(){
 		var c = this.env.memory.candidateWordList.copy();

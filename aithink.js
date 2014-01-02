@@ -7,18 +7,29 @@ AI_Think.prototype = {
 	tickLimitMs: 100,
 	tick: function(){
 		//定期的に呼ばれることを期待する
+		var tickStartTimeMs;
+		var s;
+		var separated;
+		var separated_UUID;
+		var t;
 		if(this.env.input.sentenceList.length > 0){
-			var tickStartTimeMs = new Date();
+			tickStartTimeMs = new Date();
 			this.env.debug("**** Think ****\n");
+			if(this.env.memory.candidateWordListLastModifiedDate > this.env.memory.candidateWordListLastCleanedDate){
+				if(this.env.memory.candidateWordListLastCleanedDate.getTime() + 1000 < tickStartTimeMs){
+					this.env.wordRecognition.cleanCandidateWordList();
+				}
+			}
 			for(var i = 0; i < 64; i++){
 				if((new Date()) - tickStartTimeMs > this.tickLimitMs){
 					//CPU時間占有防止
 					break;
 				}
 				//入力処理ループ
-				var s = this.env.input.getSentence();
+				s = this.env.input.getSentence();
+				
 				if(s === undefined){
-					//単語候補をソート
+					//入力文字列が終了したので、単語候補をソート
 					this.env.wordRecognition.sortCandidateWordListByWordCount();
 					this.env.wordRecognition.computeEachWordLevel();
 					this.env.wordRecognition.sortCandidateWordListByWordLevel();
@@ -30,12 +41,23 @@ AI_Think.prototype = {
 					this.env.message("Unknown", true);
 				}
 				this.env.message("> " + s + "\n", true);
-				
-				var separated = this.env.wordRecognition.splitByWord(s);
+				//ここで単語候補抽出を行っておく
+				this.env.wordRecognition.slideLookUpCandidateWordByHistory(s);
+				//分割
+				separated = this.env.wordRecognition.splitByWord(s);
 				this.env.debug("[" + separated.join(" ") + "]\n");
-				
+				separated_UUID = this.env.wordRecognition.getUUIDListFromSeparatedString(separated);
+				//分割の結果、未定義文字列と判別された部分を候補単語から探し、候補単語にあれば、その出現回数を+100する。
+				for(var i = 0, iLen = separated_UUID.length;i < iLen; i++){
+					if(separated_UUID[i] == this.env.UUID_Meaning_UndefinedString){
+						t = this.env.wordRecognition.getCandidateWordTagByString(separated[i]);
+						if(t){
+							t.wordCount += 100;
+						}
+					}
+				}
 				//パターン照合
-				this.checkPattern(separated);
+				this.checkPattern(separated, separated_UUID);
 				
 				//ジョブに入力
 				if(this.processingJob && this.processingJob.input(s) === undefined){
@@ -51,9 +73,8 @@ AI_Think.prototype = {
 			}
 		}
 	},
-	checkPattern: function(separated){
+	checkPattern: function(separated, separated_UUID){
 		//可変長の部分を含むパターンは、
-		var separated_UUID = this.env.wordRecognition.getUUIDListFromSeparatedString(separated);
 		this.env.debug("[\n" + separated_UUID.join("\n") + "\n]\n");
 		var pList = this.env.memory.patternList.copy();
 		

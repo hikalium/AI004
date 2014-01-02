@@ -58,9 +58,6 @@ AI_Input.prototype = {
 			retv = retv.trim();
 			break;
 		}
-		//ここで単語候補抽出を行っておく
-		//改行のみの文は行わない
-		this.env.wordRecognition.slideLookUpCandidateWordByHistory(retv);
 		//
 		this.appendHistory(retv);
 		return retv;

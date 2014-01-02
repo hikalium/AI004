@@ -5,8 +5,12 @@ function AI_Memory(env){
 	this.root = new Array();
 	//サブリスト
 	this.candidateWordList = new Array();
+	this.candidateWordListLastModifiedDate = new Date();
+	this.candidateWordListLastCleanedDate = new Date();
+	//
 	this.wordList = new Array();
 	this.wordListLastModifiedDate = new Date();
+	//
 	this.patternList = new Array();
 }
 AI_Memory.prototype = {
@@ -67,6 +71,7 @@ AI_Memory.prototype = {
 		//タグに合わせて追加条件を満たしているか確認し、それぞれのサブリストに分配
 		if(tag instanceof AI_CandidateWordTag){
 			this.candidateWordList.push(tag);
+			this.candidateWordListLastModifiedDate = new Date();
 		}
 		if(tag instanceof AI_WordTag){
 			if(this.wordList.isIncluded(tag, function(a, b){ return ((a.str == b.str) && (a !== s)); })){
@@ -121,7 +126,9 @@ AI_Memory.prototype = {
 	*/
 	removeMemoryTagByObject: function(obj){
 		this.root.removeAnObject(obj);
-		this.candidateWordList.removeAnObject(obj);
+		if(this.candidateWordList.removeAnObject(obj)){
+			this.candidateWordListLastModifiedDate = new Date();
+		}
 		if(this.wordList.removeAnObject(obj)){
 			this.wordListLastModifiedDate = new Date();
 		}
@@ -133,13 +140,20 @@ AI_Memory.prototype = {
 			var w = this.wordList[i].str;
 			for(var j = 0, jLen = this.candidateWordList.length; j < jLen; j++){
 				if(this.candidateWordList[j].str == w){
-					this.env.debug("Word duplicated in CWL. Remove.\n");
+					this.env.debug("Word duplicated in CWL. Removed.\n");
 					this.removeMemoryTagByObject(this.candidateWordList[j]);
 					j--;
 					jLen--;
 				}
 			}
-		}	
+		}
+		
+		this.env.wordRecognition.cleanCandidateWordList();
+		//候補リスト並べ替え
+		this.env.wordRecognition.sortCandidateWordListByWordCount();
+		this.env.wordRecognition.computeEachWordLevel();
+		this.env.wordRecognition.sortCandidateWordListByWordLevel();
+		//
 		this.env.debug("Memory verifying done.\n");
 	},
 	getUUIDFromWord: function(str){

@@ -210,10 +210,14 @@ AI.prototype = {
 			//webページを読み込む
 			//inputFromURL http://www.aozora.gr.jp/cards/000148/files/773_14560.html
 			//inputFromURL http://www.aozora.gr.jp/cards/000035/files/1567_14913.html
+			//inputFromURL http://www.aozora.gr.jp/cards/000148/files/752_14964.html
+			//inputFromURL http://www.aozora.gr.jp/cards/000035/files/301_14912.html
+			//inputFromURL http://www.aozora.gr.jp/cards/000160/files/3368_25725.html
 			//inputFromURL http://ja.wikipedia.org/wiki/%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%9A%E3%83%BC%E3%82%B8
 			//inputFromURL http://ja.wikipedia.org/wiki/%E6%9D%B1%E4%BA%AC%E5%AD%A6%E8%8A%B8%E5%A4%A7%E5%AD%A6%E9%99%84%E5%B1%9E%E9%AB%98%E7%AD%89%E5%AD%A6%E6%A0%A1
 			//inputFromURL http://osecpu.osask.jp/wiki/?FrontPage
 			//inputFromURL http://osecpu.osask.jp/wiki/?impressions
+			
 			var url = str.substring(13);
 			this.debug("[" + url + "]\n");
 			var res = this.networkManager.sendRequestThroughPHPSync("GET", url, null);
