@@ -87,10 +87,11 @@ ELCHNOSCompiler.prototype = {
 		"-",
 		"*",
 		"/",
+		"#",
 	],
 	errorMessageList: [
 		"Trap.",
-		"Incompatible value attribute.",
+		"Incompatible attribute.",
 		"Unexpected identifier.",
 		"Unknown assembly language type.",
 		"Invalid expression of OSECPU Binary.",
@@ -114,7 +115,7 @@ ELCHNOSCompiler.prototype = {
 		this.pointerRegisterAllocationTable = new Array();
 	},
 	compile: function(str){
-		//戻り値nullでコンパイル成功
+		//戻り値はコンパイルされたバイナリのHex文字列。nullの場合コンパイル失敗。
 		this.reset();
 		//
 		this.line = str.split("\n");
@@ -496,26 +497,27 @@ ELCHNOSCompiler.prototype = {
 			this.expandBinaryString();
 			this.assignRegister();
 			this.bin.logAsHexByte(this.debug);
-			this.debug("\n");
+			this.debug("(" + this.bin.length　+ "Bytes)\n");
 			//
-			
+			//最適化（試験中）
 			//
 			var cpu = new WebCPU();
 			cpu.loadBinaryText(this.bin.stringAsHexByte());
 			cpu.staticOptimize();
-			this.debug(cpu.createBackendBinaryString());
-			this.debug("\n");
+			var binStr = cpu.createBackendBinaryString();
+			this.debug(binStr);
+			this.debug("(" + (binStr.length >> 1)　+ "Bytes)\n");
 			//
 		} catch(e){
 			//全エラー処理
 			if(e instanceof ELCHNOSCompiler_CompileException){
 				this.debug(e.getMessageString());
-				return e;
+				return null;
 			} else{
 				throw e;
 			}
 		}
-		return null;
+		return binStr;
 	},
 	compile_removeComment: function(){
 		//コメント削除
@@ -527,7 +529,7 @@ ELCHNOSCompiler.prototype = {
 		for(var i = 0, iLen = this.separated.length; i < iLen; i++){
 			var s = this.separated[i];
 			if(commentLineStartIndex == -1){
-				if(s == "//"){
+				if(s == "//" || s == "#"){
 					//行コメント開始
 					commentLineStartIndex = i;
 				}
@@ -713,6 +715,7 @@ ELCHNOSCompiler.prototype = {
 		}
 	},
 	expandBinaryString: function(){
+		//入れ子構造になっている配列を一次元配列に展開して返す。
 		var ary = this.bin;
 		var b = new Array();
 		var aryStack = new Array();
@@ -767,7 +770,7 @@ ELCHNOSCompiler.prototype = {
 			}
 			if(url){
 				if(this.downloadBoxDOMObject){
-					this.downloadBoxDOMObject.innerHTML = "<a href='" + url + "' target='_blank'>ダウンロード</a>";
+					this.downloadBoxDOMObject.innerHTML = "<a href='" + url + "' target='_blank'>右クリックしてダウンロード</a>";
 				} else{
 					this.debug("BinarySaved: " + url + "\n");
 				}

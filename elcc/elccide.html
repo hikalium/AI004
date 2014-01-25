@@ -34,7 +34,7 @@ var binStr = null;
 onload = function(){
 	debugMessageTextArea = document.getElementById('debugMessageText');
 	mainCPU = new WebCPU();
-	mainCompiler = new ELCHNOSCompiler(messageOut);
+	mainCompiler = new ELCHNOSCompiler(messageOut, document.getElementById('downloadBox'));
 
 	mainCPU.setMainWindowCanvasDOMObject("mainWindowCanvas");
 	enableDebugMode();
@@ -71,12 +71,11 @@ function messageOut(s){
 
 function compile(){
 	debugMessageTextArea.value += "****Compile Started****\n";
-	if(mainCompiler.compile(codeTextArea.value) == null){
+	binStr = mainCompiler.compile(codeTextArea.value);
+	if(binStr != null){
 		messageOut("*\n****Compile Succeeded!****\n*\n");
-		binStr = mainCompiler.bin.stringAsHexByte()
 	} else{
 		messageOut("*\n****Compile Failed...****\n*\n");
-		binStr = null;
 	}
 }
 
@@ -84,6 +83,16 @@ function run(){
 	if(binStr){
 		mainCPU.loadBinaryText(binStr);
 		mainCPU.execute();
+	} else{
+		messageOut("run: No available binary.\n");
+	}
+}
+
+function showAssembly(){
+	if(binStr){
+		mainCPU.loadBinaryText(binStr);
+	} else{
+		messageOut("showAssembly: No available binary.\n");
 	}
 }
 
@@ -111,11 +120,10 @@ function handleFileSelect(evt){
 		var r = new FileReader();
 		r.onload = (function(file){
 			return function(e){
-				var a = r.result;
-				codeTextArea.value = a;
+				codeTextArea.value = r.result;
 			}
 		})(f);
-		r.readAsArrayBuffer(f);
+		r.readAsText(f);
 	}
 }
 
@@ -129,18 +137,24 @@ function handleDragOver(evt){
 <body>
 <h1>ELCC-IDE</h1>
 <div style="float:left;">
-	<h2>mainWindow</h2>
+	<h2>MainWindow</h2>
 	<canvas id="mainWindowCanvas" width="640" height="480" style="border:1px solid #000000;"></canvas>
-	<h2>Internal Information</h2>
-	<input type="checkbox" onchange="">message</input><br />
+	<h3>Message</h3>
 	<textarea id="debugMessageText" cols="66" rows="16"></textarea>
 	<form onsubmit="return false;">
 		<button onclick="compile();">Compile</button>
+		<button onclick="showAssembly();">Show Assembly</button>
 		<button onclick="run();">Run</button>
-		<button onclick="mainCPU.stopFlag = true;">Break</button><br />
+		<button onclick="mainCPU.stopFlag = true;">Break</button>
+		<br />
 		<button onclick="enableDebugMode();">EnableDebugMode</button>
 		<button onclick="disableDebugMode();">DisableDebugMode</button>
+		<br />
+		<button onclick="if(binStr){ mainCompiler.saveBinary(); }">Create bin.ose</button>
+		
 	</form>
+	<h3>Downloads</h3>
+	<div id="downloadBox"></div>
 </div>
 <div style="float:left;">
 	<h2>Code</h2>
@@ -197,7 +211,6 @@ procedure main()
 }
 	</textarea>
 	<div id="fileDropZone">Drop SourceCode.elc here</div>
-	<div id="fileList"></div>
 </div>
 </body>
 </html>

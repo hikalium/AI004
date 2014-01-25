@@ -147,22 +147,22 @@ AI.prototype = {
 		//表示処理
 		if(this.messageBox && this.messageBoxBuffer != ""){
 			//messageBox
-			var str = this.messageBox.innerHTML + this.messageBoxBuffer;
+			var str = this.messageBox.value + this.messageBoxBuffer;
 			this.messageBoxBuffer = "";
 			if(str.length > this.maxMessageStringLength){
 				str = str.slice(str.length - (this.maxMessageStringLength >> 1));
 			}
-			this.messageBox.innerHTML = str;
+			this.messageBox.value = str;
 			this.messageBox.scrollTop = this.messageBox.scrollHeight;
 		}
 		if(this.debugBox && this.debugBoxBuffer != ""){
 			//debugBox
-			var str = this.debugBox.innerHTML + this.debugBoxBuffer;
+			var str = this.debugBox.value + this.debugBoxBuffer;
 			this.debugBoxBuffer = "";
 			if(str.length > this.maxDebugStringLength){
 				str = str.slice(str.length - (this.maxDebugStringLength >> 1));
 			}
-			this.debugBox.innerHTML = str;
+			this.debugBox.value = str;
 			this.debugBox.scrollTop = this.debugBox.scrollHeight;
 		}
 	},
@@ -250,7 +250,7 @@ AI.prototype = {
 		
 		var that = this;
 		var cc = new ELCHNOSCompiler(function(s){ that.debug(s); }, this.downloadBox);
-		if(cc.compile(str) == null){
+		if(cc.compile(str) != null){
 			cc.saveBinary();
 		}
 		
