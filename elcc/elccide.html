@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=9">
+<meta charset="UTF-8">
+<title>ELCC-IDE</title>
+<style type="text/css">
+	h1, h2, h3 {
+		margin:0px;
+	}
+	body, textarea {
+		font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+		font-size: 14px;
+		line-height: 1.2;
+	}
+	#fileDropZone {
+		border: 2px dashed #bbb;
+		padding: 25px;
+		text-align: center;
+		font: 20pt bold;
+		color: #bbb;
+	}
+</style>
+<script type="text/javascript" src="./header.js" charset="UTF-8"></script>
+<script type="text/javascript">
+
+var mainCPU = null;
+var mainCompiler = null;
+var codeTextArea = null;
+var debugMessageTextArea = null;
+var maxDebugMessageLength = 0x1000;
+var binStr = null;
+
+onload = function(){
+	debugMessageTextArea = document.getElementById('debugMessageText');
+	mainCPU = new WebCPU();
+	mainCompiler = new ELCHNOSCompiler(messageOut);
+
+	mainCPU.setMainWindowCanvasDOMObject("mainWindowCanvas");
+	enableDebugMode();
+	
+	// Setup the dnd listeners.
+	var dropZone = document.getElementById('fileDropZone');
+	dropZone.addEventListener('dragover', handleDragOver, false);
+	dropZone.addEventListener('drop', handleFileSelect, false);
+	
+	//Enable Tab key in textarea
+	codeTextArea = document.getElementById('codeText');
+	//http://d.hatena.ne.jp/hokaccha/20111028/1319814792
+	codeTextArea.addEventListener("keydown", function(e) {
+		if (e.keyCode === 9) {
+			e.preventDefault();
+			var elem = e.target;
+			var val = elem.value;
+			var pos = elem.selectionStart;
+			elem.value = val.substr(0, pos) + '\t' + val.substr(pos, val.length);
+			elem.setSelectionRange(pos + 1, pos + 1);
+		}
+	});
+	
+}
+
+function messageOut(s){
+	var str = debugMessageTextArea.value + s;
+	if(str.length > maxDebugMessageLength){
+		str = str.slice(str.length - (maxDebugMessageLength >> 1));
+	}
+	debugMessageTextArea.value = str;
+	debugMessageTextArea.scrollTop = debugMessageTextArea.scrollHeight;
+}
+
+function compile(){
+	debugMessageTextArea.value += "****Compile Started****\n";
+	if(mainCompiler.compile(codeTextArea.value) == null){
+		messageOut("*\n****Compile Succeeded!****\n*\n");
+		binStr = mainCompiler.bin.stringAsHexByte()
+	} else{
+		messageOut("*\n****Compile Failed...****\n*\n");
+		binStr = null;
+	}
+}
+
+function run(){
+	if(binStr){
+		mainCPU.loadBinaryText(binStr);
+		mainCPU.execute();
+	}
+}
+
+function enableDebugMode(){
+	mainCPU.setDebugMessageDOMObject("debugMessageText");
+	mainCPU.message("****Debug mode enabled.\n");
+}
+
+function disableDebugMode(){
+	mainCPU.message("****Debug mode disabled.\n");
+	mainCPU.setDebugMessageDOMObject(null);
+}
+
+// http://www.html5rocks.com/ja/tutorials/file/dndfiles/
+function handleFileSelect(evt){
+	evt.stopPropagation();
+	evt.preventDefault();
+
+	var files = evt.dataTransfer.files; // FileList object.
+	
+	// files is a FileList of File objects. List some properties.
+	var output = [];
+	for(var i = 0, f; f = files[i]; i++){
+		output.push('<li><strong>', escape(f.name), '</strong> ', f.size, ' bytes, last modified: ', f.lastModifiedDate.toLocaleDateString(), '</li>');
+		var r = new FileReader();
+		r.onload = (function(file){
+			return function(e){
+				var a = r.result;
+				codeTextArea.value = a;
+			}
+		})(f);
+		r.readAsArrayBuffer(f);
+	}
+}
+
+function handleDragOver(evt){
+	evt.stopPropagation();
+	evt.preventDefault();
+	evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+}
+</script>
+</head>
+<body>
+<h1>ELCC-IDE</h1>
+<div style="float:left;">
+	<h2>mainWindow</h2>
+	<canvas id="mainWindowCanvas" width="640" height="480" style="border:1px solid #000000;"></canvas>
+	<h2>Internal Information</h2>
+	<input type="checkbox" onchange="">message</input><br />
+	<textarea id="debugMessageText" cols="66" rows="16"></textarea>
+	<form onsubmit="return false;">
+		<button onclick="compile();">Compile</button>
+		<button onclick="run();">Run</button>
+		<button onclick="mainCPU.stopFlag = true;">Break</button><br />
+		<button onclick="enableDebugMode();">EnableDebugMode</button>
+		<button onclick="disableDebugMode();">DisableDebugMode</button>
+	</form>
+</div>
+<div style="float:left;">
+	<h2>Code</h2>
+	<textarea id="codeText" cols="80" rows="48" wrap="off">
+unsigned char table[32] = {
+	196, 100, 187,  61, 164,  29, 129,   9,
+	 90,   5,  53,  17,  23,  44,   7,  81,
+	  7, 119,  23, 156,  53, 183,  90, 195,
+	129, 191, 164, 171, 187, 139, 196, 100,
+};
+
+procedure inline drawLine(int mode, x0, y0, x1, y1, col){
+	@asm OSECPU
+	REMARK 05 0100000003;
+	R30 = 0xff45;
+	R31 = mode;
+	R32 = x0;
+	R33 = y0;
+	R34 = x1;
+	R35 = y1;
+	R36 = col;
+	CALL P28;
+	REMARK 01 00;
+	@end
+}
+
+procedure main()
+{
+	int x0, y0, x1, y1, col, i, j;
+	unsigned char *p, *q;
+
+	p = table;
+	for (i = 0; i != 15; i++) {
+		x0 = *p;
+		p++;
+		y0 = *p;
+		p++;
+		
+		q = table;
+		for (j = -8; j != 8; j++) {
+			x1 = *q;
+			q++;
+			y1 = *q;
+			q++;
+			col = i - j;
+			if (col <= 0){
+				col = 1 - col;
+			}
+			if (col <= 7) {
+				drawLine(1 + 4, x0, y0, x1, y1, col);
+			}
+		}
+	}
+}
+	</textarea>
+	<div id="fileDropZone">Drop SourceCode.elc here</div>
+	<div id="fileList"></div>
+</div>
+</body>
+</html>

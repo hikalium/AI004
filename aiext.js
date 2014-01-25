@@ -181,13 +181,17 @@ Array.prototype.propertiesNamed = function(pName){
 	}
 	return retArray;
 }
-Array.prototype.logAsHexByte = function(){
+Array.prototype.logAsHexByte = function(logfunc){
 	//十六進バイト列としてデバッグ出力する。
+	//logfuncは省略時はconsole.logとなる。
+	if(logfunc === undefined){
+		logfunc = function(s){ console.log(s); };
+	}
 	var ds = "";
 	for(var i = 0, iLen = this.length; i < iLen; i++){
 		ds += ("00" + this[i].toString(16).toUpperCase()).slice(-2);
 	}
-	console.log(ds);
+	logfunc(ds);
 }
 Array.prototype.stringAsHexByte = function(){
 	//十六進バイト列として文字列を得る

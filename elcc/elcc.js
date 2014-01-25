@@ -1,4 +1,5 @@
 // ELCHNOSCompiler for AI004
+// AI004(WebCPU)がなければ動作しない。
 
 //手順:
 //トークン分割
@@ -31,7 +32,7 @@ ELCHNOSCompiler_CompileException.prototype = {
 			s += ":" + this.errorMessageList[this.errno] + "\n";
 		}
 		if(this.infoArray){
-			s += "  >" + this.infoArray.toString() + "\n";
+			s += "  >" + this.infoArray.join("\n  > ") + "\n";
 		}
 		return s;
 	},
@@ -39,17 +40,16 @@ ELCHNOSCompiler_CompileException.prototype = {
 // throw new ELCHNOSCompiler_CompileException(5, [""], this.lineCount);
 
 
-function ELCHNOSCompiler(env){
-	this.env = env;
+function ELCHNOSCompiler(printFunc, downloadBoxDOMObject){
+	//printFunc省略時はconsole.logに出力。
+	if(printFunc){
+		this.debug = printFunc;
+	} else{
+		this.debug = function(s){ console.log(s); };
+	}
+	this.downloadBoxDOMObject = downloadBoxDOMObject;
 	
-	this.line = null;
-	this.separated = null;
-	this.bin = new Array();
-	
-	this.structure = new Array();
-	this.currentStructure = this.structure;
-	this.structureStack = new Array();
-	
+	this.reset();
 	//0はエントリポイント(main)用に予約
 	this.nextLabelID = 1;
 	this.integerRegisterAllocationTable = new Array();
@@ -99,8 +99,24 @@ ELCHNOSCompiler.prototype = {
 	
 	Flag_Sign_Signed			: 0x00000001,
 	Flag_Sign_Unsigned			: 0x00000002,
-	
+	reset: function(){
+		this.line = null;
+		this.separated = null;
+		this.bin = new Array();
+		
+		this.structure = new Array();
+		this.currentStructure = this.structure;
+		this.structureStack = new Array();
+		
+		//0はエントリポイント(main)用に予約
+		this.nextLabelID = 1;
+		this.integerRegisterAllocationTable = new Array();
+		this.pointerRegisterAllocationTable = new Array();
+	},
 	compile: function(str){
+		//戻り値nullでコンパイル成功
+		this.reset();
+		//
 		this.line = str.split("\n");
 		//分割
 		this.separated = str.splitByArraySeparatorSeparatedLong(this.keyWordList);
@@ -479,20 +495,27 @@ ELCHNOSCompiler.prototype = {
 			}
 			this.expandBinaryString();
 			this.assignRegister();
-			this.bin.logAsHexByte();
+			this.bin.logAsHexByte(this.debug);
+			this.debug("\n");
+			//
+			
+			//
 			var cpu = new WebCPU();
 			cpu.loadBinaryText(this.bin.stringAsHexByte());
 			cpu.staticOptimize();
-			console.log(cpu.createBackendBinaryString());
-			this.saveBinary();
+			this.debug(cpu.createBackendBinaryString());
+			this.debug("\n");
+			//
 		} catch(e){
 			//全エラー処理
 			if(e instanceof ELCHNOSCompiler_CompileException){
-				this.env.debug(e.getMessageString());
+				this.debug(e.getMessageString());
+				return e;
 			} else{
 				throw e;
 			}
 		}
+		return null;
 	},
 	compile_removeComment: function(){
 		//コメント削除
@@ -540,7 +563,7 @@ ELCHNOSCompiler.prototype = {
 					iLen -= len - linesInCommentBlock;
 					linesInCommentBlock = 0;
 				} else if(commentBlockCount < 0){
-					this.env.debug("Too many block comment closure [].\n");
+					this.debug("Too many block comment closure [].\n");
 					return;
 				}
 			} else if(commentBlockCount > 0 && s == "\n"){
@@ -550,12 +573,12 @@ ELCHNOSCompiler.prototype = {
 	},
 	raiseError: function(errno, lineCount, infoArray){
 		if(errno < 0 || this.errorMessageList.length <= errno){
-			this.env.debug(lineCount + ":Error" + errno.toString().toUpperCase() + ":Unknown\n");
+			this.debug(lineCount + ":Error" + errno.toString().toUpperCase() + ":Unknown\n");
 		} else{
-			this.env.debug(lineCount + ":Error" + errno.toString().toUpperCase() + ":" + this.errorMessageList[errno] + "\n");
+			this.debug(lineCount + ":Error" + errno.toString().toUpperCase() + ":" + this.errorMessageList[errno] + "\n");
 		}
 		if(infoArray){
-			this.env.debug("  >" + infoArray.toString() + "\n");
+			this.debug("  >" + infoArray.toString() + "\n");
 		}
 	},
 	changeCurrentStructure: function(newstructure){
@@ -730,12 +753,25 @@ ELCHNOSCompiler.prototype = {
 		}
 	},
 	saveBinary: function(){
-		var m = this.env.IOManager;
 		var cl = this.bin;
 		var v = new Uint8Array(this.bin);
 		var d = new Blob([v]);
+		var url;
 		if(d){
-			m.showDownloadLink(d);
+			if(window.URL){
+				url = window.URL.createObjectURL(d);
+			} else if(window.webkitURL){
+				url = window.webkitURL.createObjectURL(d);
+			} else{
+				window.alert("Can't create URL");
+			}
+			if(url){
+				if(this.downloadBoxDOMObject){
+					this.downloadBoxDOMObject.innerHTML = "<a href='" + url + "' target='_blank'>ダウンロード</a>";
+				} else{
+					this.debug("BinarySaved: " + url + "\n");
+				}
+			}
 		}
 	},
 	

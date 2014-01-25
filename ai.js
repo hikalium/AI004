@@ -248,8 +248,11 @@ AI.prototype = {
 	inputProcess_CompileELCHNOS_OSECPU: function(str, srctype){
 		this.debug("**** Start Processing (CompileELCHNOS_OSECPU) ****\n");
 		
-		var cc = new ELCHNOSCompiler(this);
-		cc.compile(str);
+		var that = this;
+		var cc = new ELCHNOSCompiler(function(s){ that.debug(s); }, this.downloadBox);
+		if(cc.compile(str) == null){
+			cc.saveBinary();
+		}
 		
 		this.debug("**** End Processing (CompileELCHNOS_OSECPU) ****\n");
 	},
