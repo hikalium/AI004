@@ -24,9 +24,6 @@ function MGCanvas(canvasDOMObj){
 		//console.log("x:" + loc.x);
 		//console.log("y:" + loc.y);
 	};
-	//ファイルの入力を受け付ける場合はコメントを外す
-	//this.canvas.addEventListener('dragover', function(evt){ return that.handleDragOver(evt); }, false);
-	//this.canvas.addEventListener('drop', function(evt){ return that.handleFileSelect(evt); }, false);
 }
 MGCanvas.prototype = {
 	setGraph: function(gArray){
@@ -59,6 +56,27 @@ MGCanvas.prototype = {
 			p[i].position.y -= g.y;
 		}
 	},
+	bringInScreen: function(){
+		//大きく外れていないときには動かさない
+		var g = new Point2D(0, 0);
+		var p;
+		p = this.nodeList;
+		for(var i = 0, iLen = p.length; i < iLen; i++){
+			g.x += p[i].position.x;
+			g.y += p[i].position.y;
+		}
+		g.x /= p.length;
+		g.y /= p.length;
+		if(	g.x < this.displayRect.origin.x / 2 || 
+			g.x > -this.displayRect.origin.x / 2 || 
+			g.y < this.displayRect.origin.y / 2 || 
+			g.y > -this.displayRect.origin.x / 2){
+			for(var i = 0, iLen = p.length; i < iLen; i++){
+				p[i].position.x -= g.x;
+				p[i].position.y -= g.y;
+			}
+		}
+	},
 	tick: function(){
 		var p;
 		var t;
@@ -69,10 +87,14 @@ MGCanvas.prototype = {
 		
 		this.tickCount++;
 		//console.log(this.tickCount);
+		if(this.tickCount % 30 == 0){
+			this.bringInScreen();
+		}
 		
 		//
 		// Check
 		//
+		
 		p = this.nodeList;
 		for(var i = 0, iLen = p.length; i < iLen; i++){
 			nTemp = this.getVectorLength(p[i].vector);
@@ -84,6 +106,7 @@ MGCanvas.prototype = {
 		if(n){
 			n.ignoreEdgeRepulsion = 10;
 		}
+		
 		
 		//
 		// Move
@@ -250,35 +273,6 @@ MGCanvas.prototype = {
 		this.context.translate(w, h);
 		this.displayRect = new Rectangle(-w, -h, this.canvas.width, this.canvas.height);
 	},
-	loadAIMemory: function(str){
-		console.log(str);
-	},
-	// http://www.html5rocks.com/ja/tutorials/file/dndfiles/
-	handleFileSelect: function(evt){
-		evt.stopPropagation();
-		evt.preventDefault();
-	
-		var files = evt.dataTransfer.files; // FileList object.
-		var that = this;
-		
-		// files is a FileList of File objects. List some properties.
-		var output = [];
-		for(var i = 0, f; f = files[i]; i++){
-			var r = new FileReader();
-			r.onload = (function(file){
-				return function(e){
-					//mainAI.sendTextFromFileToAI(r.result, file.name, file.lastModifiedDate, "File");
-					that.loadAIMemory(r.result);
-				}
-			})(f);
-			r.readAsText(f);
-		}
-	},
-	handleDragOver: function(evt){
-		evt.stopPropagation();
-		evt.preventDefault();
-		evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-	},
 }
 
 function MGNode(env, identifier){
@@ -288,9 +282,9 @@ function MGNode(env, identifier){
 	this.size = 10;
 	//ランダムな初期ベクトルをもつ。
 	this.vector = new Point2D(Math.random() * 2 - 1, Math.random() * 2 - 1);
-	this.friction = (100 - 7) / 100;
-	this.repulsionLengthNode = 100;
-	this.repulsionLengthEdge = 75;
+	this.friction = (100 - 8) / 100;
+	this.repulsionLengthNode = 90;
+	this.repulsionLengthEdge = 90;
 	this.ignoreEdgeRepulsion = 0;
 }
 MGNode.prototype = {
