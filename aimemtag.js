@@ -48,6 +48,7 @@ var AI_WordTag = function(str, uuid){
 });
 
 var AI_PatternTag = function(pattern, uuid, func){
+	AI_PatternTag.base.call(this, AI_PatternTag.base.prototype.Type_Pattern);
 	// p.func(this.env, separated, separated_UUID);
 	//patternには関数も指定できる。その場合、関数の形式は
 	//f(separated, separated_UUID)となる。戻り値がtrueの場合、パターンはマッチしたとみなされる
@@ -67,6 +68,7 @@ var AI_PatternTag = function(pattern, uuid, func){
 });
 
 var AI_MeaningTag = function(uuid, description){
+	AI_MeaningTag.base.call(this, AI_MeaningTag.base.prototype.Type_Meaning);
 	if(description){
 		this.description = description;
 	}

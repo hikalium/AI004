@@ -1,6 +1,7 @@
 function AI_NetworkManager(env){
 	this.env = env;
 	this.PHPExtPath = "./ainet.php";
+	this.DBPHPPath = "./dbmysql.php";
 }
 AI_NetworkManager.prototype = {
 	//from PCD2013GSCL
@@ -86,5 +87,29 @@ AI_NetworkManager.prototype = {
 		sendURL += "?cmd=httpreq&url=";
 		sendURL += encodeURIComponent(url);
 		return this.sendRequestSync("GET", sendURL);
+	},
+	networkDBUpdate: function(){
+		//Upload
+		var cl = this.env.memory.root;
+		var k;
+		for(var i = 0, iLen = cl.length; i < iLen; i++){
+			k = cl[i];
+			if(k instanceof AI_MemoryTag){
+				var sendURL = this.DBPHPPath;
+				sendURL += "?action=add";
+				sendURL += "&uuid=" + k.uuid;
+				sendURL += "&typeid=" + k.type;
+				sendURL += "&desc=" + (k.str ? k.str : "");
+				sendURL += "&data=" + k.parseToStringData();
+				var res = this.sendRequestSync("GET", sendURL);
+				this.env.debug(res + "\n");
+			}
+		}
+	},
+	networkDBViewAll: function(){
+		var sendURL = this.DBPHPPath;
+		sendURL += "?action=viewall";
+		var res = this.sendRequestSync("GET", sendURL);
+		this.env.debug(res + "\n");
 	},
 }

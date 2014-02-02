@@ -13,6 +13,8 @@ function AI_MemoryTag(typeUUIDStr){
 AI_MemoryTag.prototype = {
 	Type_CandidateWord: "2fba8fc1-2b9a-46e0-8ade-455c0bd30637",
 	Type_Word: "d5eef85c-a796-4d04-bb72-8d45c94c5e4f",
+	Type_Pattern: "8085e53e-0e99-4221-821c-057f38e35ed9",
+	Type_Meaning: "dec1789a-9200-4f9b-9248-177495f47f7d",
 	
 	//http://codedehitokoto.blogspot.jp/2012/01/javascriptuuid.html
 	initUUID: function(){

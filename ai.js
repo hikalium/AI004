@@ -234,6 +234,10 @@ AI.prototype = {
 			
 		} else if(str == "savemem"){
 			this.memory.saveMemory();
+		} else if(str == "netDB update"){
+			this.networkManager.networkDBUpdate();
+		} else if(str == "netDB viewall"){
+			this.networkManager.networkDBViewAll();
 		} else{
 			this.debug("Unknown command [" + str + "].\n");
 			this.debug("Command list:\n");

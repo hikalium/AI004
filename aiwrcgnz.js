@@ -64,12 +64,14 @@ AI_WordRecognition.prototype = {
 				this.env.memory.removeMemoryTagByObject(this.env.memory.candidateWordList[i]);
 				i--;
 				iLen--;
+				continue;
 			}
 			if(this.env.memory.candidateWordList[i].wordLevel < 1){
 				this.env.debug("Too small wordLevel of candidateWord [" + this.env.memory.candidateWordList[i].str + "]. Removed.\n");
 				this.env.memory.removeMemoryTagByObject(this.env.memory.candidateWordList[i]);
 				i--;
 				iLen--;
+				continue;
 			}
 		}
 		this.env.memory.candidateWordListLastCleanedDate = new Date();
