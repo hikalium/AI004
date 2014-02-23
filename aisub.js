@@ -40,7 +40,7 @@ AI_Input.prototype = {
 		} else{
 			sList = [input];
 		}
-		console.log(sList);
+		//console.log(sList);
 		this.sentenceList.push([srctype]);
 		this.sentenceList = this.sentenceList.concat(sList);
 	},
@@ -59,6 +59,7 @@ AI_Input.prototype = {
 			break;
 		}
 		//
+		this.env.memory.dbInfo.readLineCount++;
 		this.appendHistory(retv);
 		return retv;
 	},

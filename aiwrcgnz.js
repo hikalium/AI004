@@ -55,10 +55,10 @@ AI_WordRecognition.prototype = {
 	},
 	cleanCandidateWordList: function(){
 		//不要な候補単語を削除
-		//出現回数の少ない候補単語
-		//単語度が1未満の単語(暫定)
 		var iLen = this.env.memory.candidateWordList.length;
 		for(var i = 0; i < iLen; i++){
+			/*
+			//出現回数の少ない候補単語
 			if(this.env.memory.candidateWordList[i].wordCount < 10){
 				this.env.debug("Too small wordCount of candidateWord [" + this.env.memory.candidateWordList[i].str + "]. Removed.\n");
 				this.env.memory.removeMemoryTagByObject(this.env.memory.candidateWordList[i]);
@@ -66,6 +66,8 @@ AI_WordRecognition.prototype = {
 				iLen--;
 				continue;
 			}
+			*/
+			//単語度が1未満の単語(暫定)
 			if(this.env.memory.candidateWordList[i].wordLevel < 1){
 				this.env.debug("Too small wordLevel of candidateWord [" + this.env.memory.candidateWordList[i].str + "]. Removed.\n");
 				this.env.memory.removeMemoryTagByObject(this.env.memory.candidateWordList[i]);
@@ -78,7 +80,7 @@ AI_WordRecognition.prototype = {
 	},
 	debugShowCandidateWordList: function(){
 		var c = this.env.memory.candidateWordList.copy();
-		c.reverse();
+		//c.reverse();
 		this.env.debug("candidateWordList:" + c.length + "\n #:wCount:level:str\n");
 		
 		for(var i = 0, iLen = c.length; i < iLen; i++){

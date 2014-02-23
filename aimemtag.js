@@ -47,6 +47,25 @@ var AI_WordTag = function(str, uuid){
 	},
 });
 
+var AI_DatabaseInfoTag = function(){
+	AI_DatabaseInfoTag.base.call(this, AI_DatabaseInfoTag.base.prototype.Type_DatabaseInfo);
+	this.readLineCount = 0;
+}.extend(AI_MemoryTag, {
+	parseToStringData: function(){
+		//uuid:type:str:wordCount:wordLevel
+		var d = new Object();
+		d.rlc = this.readLineCount;
+		return AI_DatabaseInfoTag.base.prototype.parseToStringData.call(this, d);
+	},
+	loadFromMemoryData: function(data){
+		this.readLineCount = data.rlc;
+	},
+	bindDatabaseInfo: function(aimemory){
+		//このインスタンスがもつ情報をAI_Memoryのデータに反映させる
+		aimemory.dbInfo.readLineCount = this.readLineCount;
+	},
+});
+
 var AI_PatternTag = function(pattern, uuid, func){
 	AI_PatternTag.base.call(this, AI_PatternTag.base.prototype.Type_Pattern);
 	// p.func(this.env, separated, separated_UUID);

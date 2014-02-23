@@ -12,6 +12,8 @@ function AI_Memory(env){
 	this.wordListLastModifiedDate = new Date();
 	//
 	this.patternList = new Array();
+	//
+	this.dbInfo = new AI_DatabaseInfoTag();
 }
 AI_Memory.prototype = {
 
@@ -28,6 +30,12 @@ AI_Memory.prototype = {
 				}
 			}
 		}
+		//dbInfoタグの保存
+		k = this.dbInfo.parseToStringData();
+		if(k !== undefined){
+			s += k + "\n";
+		}
+		//
 		var d = new Blob([s]);
 		if(d){
 			m.showDownloadLink(d);
@@ -54,6 +62,8 @@ AI_Memory.prototype = {
 				t = new AI_CandidateWordTag();
 			} else if(q == AI_MemoryTag.prototype.Type_Word){
 				t = new AI_WordTag();
+			} else if(q == AI_MemoryTag.prototype.Type_DatabaseInfo){
+				t = new AI_DatabaseInfoTag();
 			} else{
 				t = new AI_MemoryTag();
 			}
@@ -72,8 +82,7 @@ AI_Memory.prototype = {
 		if(tag instanceof AI_CandidateWordTag){
 			this.candidateWordList.push(tag);
 			this.candidateWordListLastModifiedDate = new Date();
-		}
-		if(tag instanceof AI_WordTag){
+		} else if(tag instanceof AI_WordTag){
 			if(this.wordList.isIncluded(tag, function(a, b){ return ((a.str == b.str) && (a !== s)); })){
 				this.env.debug("appendMemoryTag: Duplicated word [" + tag.str + "].\n");
 				return;
@@ -84,9 +93,12 @@ AI_Memory.prototype = {
 			}
 			this.wordList.push(tag);
 			this.wordListLastModifiedDate = new Date();
-		}
-		if(tag instanceof AI_PatternTag){
+		} else if(tag instanceof AI_PatternTag){
 			this.patternList.push(tag);
+		} else if(tag instanceof AI_DatabaseInfoTag){
+			//データベースデータに反映させて、タグ自体は破棄する
+			tag.bindDatabaseInfo(this);
+			return;
 		}
 		
 		//すでにあった重複UUIDの削除

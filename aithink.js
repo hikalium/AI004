@@ -12,14 +12,10 @@ AI_Think.prototype = {
 		var separated;
 		var separated_UUID;
 		var t;
+		tickStartTimeMs = new Date();
 		if(this.env.input.sentenceList.length > 0){
-			tickStartTimeMs = new Date();
 			this.env.debug("**** Think ****\n");
-			if(this.env.memory.candidateWordListLastModifiedDate > this.env.memory.candidateWordListLastCleanedDate){
-				if(this.env.memory.candidateWordListLastCleanedDate.getTime() + 1000 < tickStartTimeMs){
-					this.env.wordRecognition.cleanCandidateWordList();
-				}
-			}
+			
 			for(var i = 0; i < 64; i++){
 				if((new Date()) - tickStartTimeMs > this.tickLimitMs){
 					//CPU時間占有防止
@@ -33,6 +29,7 @@ AI_Think.prototype = {
 					this.env.wordRecognition.sortCandidateWordListByWordCount();
 					this.env.wordRecognition.computeEachWordLevel();
 					this.env.wordRecognition.sortCandidateWordListByWordLevel();
+					this.env.wordRecognition.cleanCandidateWordList();
 					break;
 				}
 				if(this.env.input.lastSentenceSourceType){

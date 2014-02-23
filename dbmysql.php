@@ -145,6 +145,9 @@ if(isset($_GET['action'])){
 		}
 		$stmt->close();
 		exit("OK");
+	} else if(strcmp($action, 'saytest') == 0){
+		//for Mac OSX say command.
+		system("say " . escapeshellarg("sayのテストをしています。"));
 	}
 }
 

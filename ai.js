@@ -3,7 +3,7 @@
 //開発時クロスドメイン許可で起動するには、
 // /Applications/Google\ Chrome.app/ --allow-file-access-from-files --disable-web-security
 
-var DebugModeEnabled = true;
+var IsDebugModeEnabledOnBoot = true;
 
 function AI(messageBoxDOMObject, debugBoxDOMObject){
 	//ブラウザチェック
@@ -42,7 +42,7 @@ function AI(messageBoxDOMObject, debugBoxDOMObject){
 		this.inputProcess_InternalConsole,
 		this.inputProcess_CompileELCHNOS_OSECPU,
 	];
-	if(!DebugModeEnabled){
+	if(!IsDebugModeEnabledOnBoot){
 		this.mode = this.UUID_Mode_Standard;
 		this.processByMode = this.inputProcess_Standard;
 	} else{
@@ -50,6 +50,7 @@ function AI(messageBoxDOMObject, debugBoxDOMObject){
 		this.processByMode = this.inputProcess_InternalConsole;
 	}
 
+	//初期データの読み込み
 	AI_Bootstrap(this);
 
 	this.debug("AI system initialized.\n");
@@ -206,6 +207,9 @@ AI.prototype = {
 			//show wordList
 			this.debug("wordList:" + this.memory.wordList.length + "\n" );
 			this.memory.wordList.logEachPropertyNamed("str", function(s){ that.debug(s); });
+		} else if(str == "show rlc"){
+			//show ReadLineCount
+			this.debug(this.memory.dbInfo.readLineCount + " lines was inputted.\n" );
 		} else if(str.indexOf("inputFromURL ") == 0){
 			//webページを読み込む
 			//inputFromURL http://www.aozora.gr.jp/cards/000148/files/773_14560.html
