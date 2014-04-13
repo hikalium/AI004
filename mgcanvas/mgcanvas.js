@@ -12,6 +12,7 @@ function MGCanvas(canvasDOMObj){
 	this.tickTimer = window.setInterval(function(){ that.tick(); }, 1000 / this.tickPerSecond);
 	this.nodeList = new Array();
 	this.edgeList = new Array();
+	
 	var that = this;
 	window.addEventListener('keydown', function(event){
 		switch(event.keyCode){
@@ -29,6 +30,37 @@ function MGCanvas(canvasDOMObj){
 				break;
 		}
 	}, true);
+	
+	this.isMouseDown = false;
+	this.mouseDownPosition = new Point2D(0, 0);
+	this.lastMousePosition = new Point2D(0, 0);
+	this.canvas.onmousemove = function (e){
+		if(that.isMouseDown){
+			if(!e){
+				//for IE
+				e = window.event;
+			}
+			that.lastMousePosition = that.getMousePositionOnElement(e);
+		}
+	};
+	this.canvas.onmousedown = function (e){
+		if(!e){
+			//for IE
+			e = window.event;
+		}
+		that.lastMousePosition = that.getMousePositionOnElement(e);
+		that.mouseDownPosition = that.lastMousePosition;
+		var p = that.convertPointToGraphLayerFromCanvasLayerP(that.lastMousePosition);
+		console.log(p.x + "," + p.y);
+		var node = that.getNodeAtPointP(p);
+		if(node){
+			node.isSelected = true;
+		}
+		that.isMouseDown = true;
+	};
+	this.canvas.onmouseup = function (e){
+		that.isMouseDown = false;
+	};
 }
 MGCanvas.prototype = {
 	setGraph: function(gArray){
@@ -104,6 +136,16 @@ MGCanvas.prototype = {
 		var nTemp;
 		
 		this.tickCount++;
+		
+		//
+		// View moving with mouse
+		//
+		if(this.isMouseDown){
+			this.moveViewRelative(
+				(this.mouseDownPosition.x - this.lastMousePosition.x) * 4 / this.tickPerSecond,
+				(this.mouseDownPosition.y - this.lastMousePosition.y) * 4 / this.tickPerSecond
+			);
+		}
 		
 		//
 		// Check
@@ -299,6 +341,32 @@ MGCanvas.prototype = {
 		this.currentScale = 1;
 		this.positionOffset = new Point2D(0, 0);
 	},
+	convertPointToGraphLayerFromCanvasLayerP: function(pCanvas){
+		var p = new Point2D(pCanvas.x, pCanvas.y);
+		// Canvasの中心が原点
+		p.x -= this.canvas.width / 2;
+		p.y -= this.canvas.height / 2;
+		// スケール変換
+		p.x /= this.currentScale;
+		p.y /= this.currentScale;
+		
+		// オフセット平行移動
+		p.x -= this.positionOffset.x;
+		p.y -= this.positionOffset.y;
+		
+		return p;
+	},
+	getNodeAtPointP: function(p){
+		var r = new Rectangle(p.x - 10, p.y - 10, 20, 20);
+		
+		var nl = this.nodeList;
+		for(var i = 0, iLen = nl.length; i < iLen; i++){
+			if(r.isIncludePointP(nl[i].position)){
+				return nl[i];
+			}
+		}
+		return null;
+	}
 }
 
 function MGNode(env, identifier){
@@ -312,9 +380,16 @@ function MGNode(env, identifier){
 	this.repulsionLengthNode = 90;
 	this.repulsionLengthEdge = 90;
 	this.ignoreEdgeRepulsion = 0;
+	this.strokeStyle = "rgba(0, 0, 0, 1)";
+	this.isSelected = false;
 }
 MGNode.prototype = {
 	draw: function(){
+		if(this.isSelected){
+			this.env.context.strokeStyle = "rgba(255, 0, 0, 1)";
+		} else{
+			this.env.context.strokeStyle = this.strokeStyle;
+		}
 		this.env.drawCircle(this.position.x, this.position.y, this.size);
 		this.env.drawText(this.identifier.toString(), this.position.x + 10, this.position.y + 10);
 	},
@@ -415,6 +490,9 @@ function Rectangle(x, y, width, height){
 	this.size = new Point2D(width,height);
 }
 Rectangle.prototype = {
-	
+	isIncludePointP: function(p){
+		return 	(this.origin.x <= p.x) && (p.x <= this.origin.x + this.size.x) &&
+				(this.origin.y <= p.y) && (p.y <= this.origin.y + this.size.y);
+	},
 }
 
