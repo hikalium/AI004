@@ -78,7 +78,7 @@ onload = function() {
 		["A", "P"],
 	]]);
 	*/
-	
+	/*
 	//Petersen Graph
 	mgmain.setGraph([[
 		"A","B","C","D","E","F","G","H","I","J",
@@ -101,8 +101,8 @@ onload = function() {
 		["F", "I"],
 		["G", "J"],
 	]]);
+	*/
 	
-	/*
 	mgmain.setGraph([[
 		"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O",
 		],[
@@ -127,7 +127,7 @@ onload = function() {
 		//
 		["M", "O"],
 	]]);
-	*/
+	
 	
 }
 </script>
@@ -137,5 +137,11 @@ onload = function() {
 <canvas id="mainCanvas" width="1024" height="768" style="border:1px solid #000000;"></canvas>
 <br />
 <button onclick="mgmain.bringToCenter();">Center</button>
+<button onclick="mgmain.zoomIn();">+</button>
+<button onclick="mgmain.zoomOut();">-</button>
+<button onclick="mgmain.moveViewRelative(0, -10);">↑</button>
+<button onclick="mgmain.moveViewRelative(0, 10);">↓</button>
+<button onclick="mgmain.moveViewRelative(-10, 0);">←</button>
+<button onclick="mgmain.moveViewRelative(10, 0);">→</button>
 </body>
 </html>

@@ -9,21 +9,26 @@ function MGCanvas(canvasDOMObj){
 	this.initGraphicContext(canvasDOMObj);
 	this.tickPerSecond = 30;
 	this.tickCount = 0;
-	this.tickTimer = window.setInterval(function(){ that.tick(); }, 1000/this.tickPerSecond);
+	this.tickTimer = window.setInterval(function(){ that.tick(); }, 1000 / this.tickPerSecond);
 	this.nodeList = new Array();
 	this.edgeList = new Array();
-	
 	var that = this;
-	this.canvas.onmousemove = function (e){
-		if(!e){
-			//for IE
-			e = window.event;
+	window.addEventListener('keydown', function(event){
+		switch(event.keyCode){
+			case 37:	//左カーソル
+				that.moveViewRelative(-10, 0);
+				break;
+			case 39:	//右カーソル
+				that.moveViewRelative(10, 0);
+				break;
+			case 38:	//上カーソル
+				that.moveViewRelative(0, -10);
+				break;
+			case 40:	//下カーソル
+				that.moveViewRelative(0, 10);
+				break;
 		}
-		var loc = that.getMousePositionOnElement(e);
-		// 出力テスト
-		//console.log("x:" + loc.x);
-		//console.log("y:" + loc.y);
-	};
+	}, true);
 }
 MGCanvas.prototype = {
 	setGraph: function(gArray){
@@ -42,6 +47,7 @@ MGCanvas.prototype = {
 		}
 	},
 	bringToCenter: function(){
+		// 重心を求めて、それを表示オフセットに設定する
 		var g = new Point2D(0, 0);
 		var p;
 		p = this.nodeList;
@@ -51,11 +57,23 @@ MGCanvas.prototype = {
 		}
 		g.x /= p.length;
 		g.y /= p.length;
-		for(var i = 0, iLen = p.length; i < iLen; i++){
-			p[i].position.x -= g.x;
-			p[i].position.y -= g.y;
-		}
+		
+		this.positionOffset.x = -g.x;
+		this.positionOffset.y = -g.y;
 	},
+	zoomIn: function(){
+		this.context.scale(2, 2);
+		this.currentScale *= 2;
+	},
+	zoomOut: function(){
+		this.context.scale(0.5, 0.5);
+		this.currentScale *= 0.5;
+	},
+	moveViewRelative: function(x, y){
+		this.positionOffset.x += -x;
+		this.positionOffset.y += -y;
+	},
+	/*
 	bringInScreen: function(){
 		//大きく外れていないときには動かさない
 		var g = new Point2D(0, 0);
@@ -71,12 +89,12 @@ MGCanvas.prototype = {
 			g.x > -this.displayRect.origin.x / 2 || 
 			g.y < this.displayRect.origin.y / 2 || 
 			g.y > -this.displayRect.origin.x / 2){
-			for(var i = 0, iLen = p.length; i < iLen; i++){
-				p[i].position.x -= g.x;
-				p[i].position.y -= g.y;
-			}
+			
+			this.positionOffset.x = -g.x;
+			this.positionOffset.y = -g.y;
 		}
 	},
+	*/
 	tick: function(){
 		var p;
 		var t;
@@ -86,10 +104,6 @@ MGCanvas.prototype = {
 		var nTemp;
 		
 		this.tickCount++;
-		//console.log(this.tickCount);
-		if(this.tickCount % 30 == 0){
-			this.bringInScreen();
-		}
 		
 		//
 		// Check
@@ -124,15 +138,25 @@ MGCanvas.prototype = {
 		// Refresh
 		//
 		dr = this.displayRect;
+		
+		this.context.scale(1 / this.currentScale, 1 / this.currentScale);
 		this.context.clearRect(dr.origin.x, dr.origin.y, dr.size.x, dr.size.y);
+		this.context.scale(this.currentScale, this.currentScale);
+		
+		this.context.translate(this.positionOffset.x, this.positionOffset.y);
+		
 		p = this.nodeList;
 		for(var i = 0, iLen = p.length; i < iLen; i++){
 			this.nodeList[i].draw();
 		}
+		
 		p = this.edgeList;
 		for(var i = 0, iLen = p.length; i < iLen; i++){
 			this.edgeList[i].draw();
 		}
+		
+		this.context.translate(-this.positionOffset.x, -this.positionOffset.y);
+		
 	},
 	getMousePositionOnElement: function(e){
 		// http://tmlife.net/programming/javascript/javascript-mouse-pos.html
@@ -272,6 +296,8 @@ MGCanvas.prototype = {
 		var h = this.canvas.height / 2;
 		this.context.translate(w, h);
 		this.displayRect = new Rectangle(-w, -h, this.canvas.width, this.canvas.height);
+		this.currentScale = 1;
+		this.positionOffset = new Point2D(0, 0);
 	},
 }
 
