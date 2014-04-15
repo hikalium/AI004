@@ -10,8 +10,10 @@ function MGCanvas(canvasDOMObj){
 	this.tickPerSecond = 30;
 	this.tickCount = 0;
 	this.tickTimer = window.setInterval(function(){ that.tick(); }, 1000 / this.tickPerSecond);
+	this.isFrozen = false;
 	this.nodeList = new Array();
 	this.edgeList = new Array();
+	this.selectedEdge = null;
 	
 	var that = this;
 	window.addEventListener('keydown', function(event){
@@ -51,11 +53,9 @@ function MGCanvas(canvasDOMObj){
 		that.lastMousePosition = that.getMousePositionOnElement(e);
 		that.mouseDownPosition = that.lastMousePosition;
 		var p = that.convertPointToGraphLayerFromCanvasLayerP(that.lastMousePosition);
-		console.log(p.x + "," + p.y);
+		//console.log(p.x + "," + p.y);
 		var node = that.getNodeAtPointP(p);
-		if(node){
-			node.isSelected = true;
-		}
+		that.selectNode(node);
 		that.isMouseDown = true;
 	};
 	this.canvas.onmouseup = function (e){
@@ -147,33 +147,35 @@ MGCanvas.prototype = {
 			);
 		}
 		
-		//
-		// Check
-		//
-		
-		p = this.nodeList;
-		for(var i = 0, iLen = p.length; i < iLen; i++){
-			nTemp = this.getVectorLength(p[i].vector);
-			if(nMax < nTemp){
-				n = p[i];
-				nMax = nTemp;
+		if(!this.isFrozen){
+			//
+			// Check
+			//
+			
+			p = this.nodeList;
+			for(var i = 0, iLen = p.length; i < iLen; i++){
+				nTemp = this.getVectorLength(p[i].vector);
+				if(nMax < nTemp){
+					n = p[i];
+					nMax = nTemp;
+				}
 			}
-		}
-		if(n){
-			n.ignoreEdgeRepulsion = 10;
-		}
-		
-		
-		//
-		// Move
-		//
-		p = this.nodeList;
-		for(var i = 0, iLen = p.length; i < iLen; i++){
-			this.nodeList[i].tick();
-		}
-		p = this.edgeList;
-		for(var i = 0, iLen = p.length; i < iLen; i++){
-			this.edgeList[i].tick();
+			if(n){
+				n.ignoreEdgeRepulsion = 10;
+			}
+			
+			
+			//
+			// Move
+			//
+			p = this.nodeList;
+			for(var i = 0, iLen = p.length; i < iLen; i++){
+				this.nodeList[i].tick();
+			}
+			p = this.edgeList;
+			for(var i = 0, iLen = p.length; i < iLen; i++){
+				this.edgeList[i].tick();
+			}
 		}
 		
 		//
@@ -366,7 +368,21 @@ MGCanvas.prototype = {
 			}
 		}
 		return null;
-	}
+	},
+	selectNode: function(node){
+		if(this.selectedNode){
+			this.selectedNode.isSelected = false;
+		}
+		if(node){
+			node.isSelected = true;
+		}
+		this.selectedNode = node;
+	},
+	setIdentifierForSelectedNode: function(str){
+		if(this.selectedNode){
+			this.selectedNode.identifier = str;
+		}
+	},
 }
 
 function MGNode(env, identifier){
@@ -380,6 +396,7 @@ function MGNode(env, identifier){
 	this.repulsionLengthNode = 90;
 	this.repulsionLengthEdge = 90;
 	this.ignoreEdgeRepulsion = 0;
+	//
 	this.strokeStyle = "rgba(0, 0, 0, 1)";
 	this.isSelected = false;
 }
@@ -455,9 +472,17 @@ function MGEdge(env, identifier, node0, node1){
 	this.node0 = node0;
 	this.node1 = node1;
 	this.freeLength = 250;
+	//
+	this.strokeStyle = "rgba(0, 0, 0, 1)";
+	this.isSelected = false;
 }
 MGEdge.prototype = {
 	draw: function(){
+		if(this.isSelected){
+			this.env.context.strokeStyle = "rgba(255, 0, 0, 1)";
+		} else{
+			this.env.context.strokeStyle = this.strokeStyle;
+		}
 		if(this.node0 && this.node1){
 			this.env.drawLineP(this.node0.position, this.node1.position);
 		}

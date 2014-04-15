@@ -137,11 +137,14 @@ onload = function() {
 <canvas id="mainCanvas" width="1024" height="768" style="border:1px solid #000000;"></canvas>
 <br />
 <button onclick="mgmain.bringToCenter();">Center</button>
+<button onclick="mgmain.isFrozen = !mgmain.isFrozen;">Freeze</button>
 <button onclick="mgmain.zoomIn();">+</button>
 <button onclick="mgmain.zoomOut();">-</button>
 <button onclick="mgmain.moveViewRelative(0, -10);">↑</button>
 <button onclick="mgmain.moveViewRelative(0, 10);">↓</button>
 <button onclick="mgmain.moveViewRelative(-10, 0);">←</button>
 <button onclick="mgmain.moveViewRelative(10, 0);">→</button>
+<input id="identBox" type="text">
+<button onclick="mgmain.setIdentifierForSelectedNode(getElementById('identBox').value);">set</button>
 </body>
 </html>
