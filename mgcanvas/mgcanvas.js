@@ -13,6 +13,7 @@ function MGCanvas(canvasDOMObj){
 	this.isFrozen = false;
 	this.nodeList = new Array();
 	this.edgeList = new Array();
+	this.selectedNode = null;
 	this.selectedEdge = null;
 	
 	var that = this;
@@ -56,6 +57,8 @@ function MGCanvas(canvasDOMObj){
 		//console.log(p.x + "," + p.y);
 		var node = that.getNodeAtPointP(p);
 		that.selectNode(node);
+		var edge = that.getEdgeAtPointP(p);
+		that.selectEdge(edge);
 		that.isMouseDown = true;
 	};
 	this.canvas.onmouseup = function (e){
@@ -369,6 +372,17 @@ MGCanvas.prototype = {
 		}
 		return null;
 	},
+	getEdgeAtPointP: function(p){
+		var r = new Rectangle(p.x - 10, p.y - 10, 20, 20);
+		
+		var el = this.edgeList;
+		for(var i = 0, iLen = el.length; i < iLen; i++){
+			if(r.isIncludePointP(el[i].centerPoint)){
+				return el[i];
+			}
+		}
+		return null;
+	},
 	selectNode: function(node){
 		if(this.selectedNode){
 			this.selectedNode.isSelected = false;
@@ -377,6 +391,15 @@ MGCanvas.prototype = {
 			node.isSelected = true;
 		}
 		this.selectedNode = node;
+	},
+	selectEdge: function(edge){
+		if(this.selectedEdge){
+			this.selectedEdge.isSelected = false;
+		}
+		if(edge){
+			edge.isSelected = true;
+		}
+		this.selectedEdge = edge;
 	},
 	setIdentifierForSelectedNode: function(str){
 		if(this.selectedNode){
@@ -408,7 +431,9 @@ MGNode.prototype = {
 			this.env.context.strokeStyle = this.strokeStyle;
 		}
 		this.env.drawCircle(this.position.x, this.position.y, this.size);
-		this.env.drawText(this.identifier.toString(), this.position.x + 10, this.position.y + 10);
+		if(this.identifier){
+			this.env.drawText(this.identifier.toString(), this.position.x + 10, this.position.y + 10);
+		}
 	},
 	tick: function(){
 		var e;
@@ -475,6 +500,8 @@ function MGEdge(env, identifier, node0, node1){
 	//
 	this.strokeStyle = "rgba(0, 0, 0, 1)";
 	this.isSelected = false;
+	//
+	this.centerPoint = new Point2D(0, 0);
 }
 MGEdge.prototype = {
 	draw: function(){
@@ -484,7 +511,11 @@ MGEdge.prototype = {
 			this.env.context.strokeStyle = this.strokeStyle;
 		}
 		if(this.node0 && this.node1){
-			this.env.drawLineP(this.node0.position, this.node1.position);
+			this.drawCurvedLineP(this.node0.position, this.node1.position);
+			this.env.strokeRect(this.centerPoint.x - 8, this.centerPoint.y - 8, 16, 16);
+			if(this.identifier){
+				this.env.drawText(this.identifier.toString(), this.centerPoint.x, this.centerPoint.y);
+			}
 		}
 	},
 	tick: function(){
@@ -499,6 +530,18 @@ MGEdge.prototype = {
 			this.node1.vector.x -= e.x;
 			this.node1.vector.y -= e.y;
 		}
+		this.centerPoint = new Point2D((this.node0.position.x + this.node1.position.x) / 2, (this.node0.position.y + this.node1.position.y) / 2);
+	},
+	drawCurvedLineP: function(p, q){
+		var that = this;
+		var d = function(x){ return that.env.drawCoordinatesInInteger(x); };
+		var v = this.env.getUnitVectorP(p, q);
+		var w = new Point2D(-(v.y * 50), v.x * 50);
+		this.env.context.beginPath();
+		this.env.context.moveTo(d(p.x), d(p.y));
+		this.env.context.bezierCurveTo(d(this.centerPoint.x + w.x), d(this.centerPoint.y + w.y), d(this.centerPoint.x - w.x), d(this.centerPoint.y - w.y), d(q.x), d(q.y));
+		//this.env.context.closePath();
+		this.env.context.stroke();
 	},
 }
 
