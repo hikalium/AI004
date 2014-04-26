@@ -1,7 +1,3 @@
-//文字列をキーとする。
-
-//まず、最も多数のエッジを持つノードを探す。
-//それを起点にして、エッジをたどる。
 
 function MGCanvas(canvasDOMObj){
 	var that = this;
@@ -10,7 +6,8 @@ function MGCanvas(canvasDOMObj){
 	this.tickPerSecond = 30;
 	this.tickCount = 0;
 	this.tickTimer = window.setInterval(function(){ that.tick(); }, 1000 / this.tickPerSecond);
-	this.isFrozen = false;
+	this.isPaused = false;
+	this.isEnabledAutomaticTracking = true;
 	this.nodeList = new Array();
 	this.edgeList = new Array();
 	this.selectedNode = null;
@@ -60,6 +57,7 @@ function MGCanvas(canvasDOMObj){
 		var edge = that.getEdgeAtPointP(p);
 		that.selectEdge(edge);
 		that.isMouseDown = true;
+		that.isEnabledAutomaticTracking = false;
 	};
 	this.canvas.onmouseup = function (e){
 		that.isMouseDown = false;
@@ -81,6 +79,12 @@ MGCanvas.prototype = {
 			this.edgeList.push(new MGEdge(this, p[i][2], n(p[i][0]), n(p[i][1])));
 		}
 	},
+	addNode: function(identifier, uuid){
+		
+	},
+	addEdge: function(identifier, uuid, nodeid){
+		
+	},
 	bringToCenter: function(){
 		// 重心を求めて、それを表示オフセットに設定する
 		var g = new Point2D(0, 0);
@@ -95,6 +99,8 @@ MGCanvas.prototype = {
 		
 		this.positionOffset.x = -g.x;
 		this.positionOffset.y = -g.y;
+		
+		this.isEnabledAutomaticTracking = true;
 	},
 	zoomIn: function(){
 		this.context.scale(2, 2);
@@ -108,10 +114,10 @@ MGCanvas.prototype = {
 		this.positionOffset.x += -x;
 		this.positionOffset.y += -y;
 	},
-	/*
 	bringInScreen: function(){
 		//大きく外れていないときには動かさない
 		var g = new Point2D(0, 0);
+		var f = new Point2D(0, 0);
 		var p;
 		p = this.nodeList;
 		for(var i = 0, iLen = p.length; i < iLen; i++){
@@ -120,16 +126,17 @@ MGCanvas.prototype = {
 		}
 		g.x /= p.length;
 		g.y /= p.length;
+		g.x += this.positionOffset.x;
+		g.y += this.positionOffset.y;
 		if(	g.x < this.displayRect.origin.x / 2 || 
 			g.x > -this.displayRect.origin.x / 2 || 
 			g.y < this.displayRect.origin.y / 2 || 
 			g.y > -this.displayRect.origin.x / 2){
 			
-			this.positionOffset.x = -g.x;
-			this.positionOffset.y = -g.y;
+			this.positionOffset.x += -g.x;
+			this.positionOffset.y += -g.y;
 		}
 	},
-	*/
 	tick: function(){
 		var p;
 		var t;
@@ -141,6 +148,15 @@ MGCanvas.prototype = {
 		this.tickCount++;
 		
 		//
+		// AutomaticTracking
+		//
+		
+		if(this.isEnabledAutomaticTracking && (this.tickCount % 30 == 0)){
+			this.bringInScreen();
+		}
+
+		
+		//
 		// View moving with mouse
 		//
 		if(this.isMouseDown){
@@ -150,7 +166,7 @@ MGCanvas.prototype = {
 			);
 		}
 		
-		if(!this.isFrozen){
+		if(!this.isPaused){
 			//
 			// Check
 			//

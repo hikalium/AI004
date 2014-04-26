@@ -23,7 +23,7 @@ onload = function() {
 	var c = document.getElementById("mainCanvas");
 	mgmain = new MGCanvas(c);
 	
-	
+	/*
 	mgmain.setGraph([[
 		"A","B","C","D","E","F",
 		],[
@@ -35,7 +35,7 @@ onload = function() {
 		["A", "E"],
 		["A", "B"],
 	]]);
-	
+	*/
 	/*
 	mgmain.setGraph([[
 		"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P",
@@ -137,7 +137,7 @@ onload = function() {
 <canvas id="mainCanvas" width="1024" height="768" style="border:1px solid #000000;"></canvas>
 <br />
 <button onclick="mgmain.bringToCenter();">Center</button>
-<button onclick="mgmain.isFrozen = !mgmain.isFrozen;">Freeze</button>
+<button onclick="mgmain.isPaused = !mgmain.isPaused;">Freeze</button>
 <button onclick="mgmain.zoomIn();">+</button>
 <button onclick="mgmain.zoomOut();">-</button>
 <button onclick="mgmain.moveViewRelative(0, -10);">↑</button>
