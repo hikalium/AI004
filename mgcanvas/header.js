@@ -1,7 +1,9 @@
 include = function(relpath){
 	document.write("<script type='text/javascript' src=" + relpath + " charset='UTF-8'></script>");
 }
-//AICore
+// AICore
 include("./../aiext.js");
-//MGCanvas
+// MGCanvas
 include("./mgcanvas.js");
+// memdb
+include("./../memdb/memdb.js")

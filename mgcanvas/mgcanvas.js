@@ -79,11 +79,23 @@ MGCanvas.prototype = {
 			this.edgeList.push(new MGEdge(this, p[i][2], n(p[i][0]), n(p[i][1])));
 		}
 	},
-	addNode: function(identifier, uuid){
-		
-	},
-	addEdge: function(identifier, uuid, nodeid){
-		
+	loadGraphFromMemoryDB: function(mdb){
+		var a, l, t, u, m, e, f;
+		a = mdb.nodeList;
+		l = a.length;
+		//m = 12 * l;
+		t = new MGNode(this, "Node");
+		this.nodeList.push(t);
+		f = function(){};
+		for(var i = 0; i < l; i++){
+			u = new MGNode(this, a[i].identifier);
+			this.nodeList.push(u);
+			//e = new MGEdge(this, null, t, u);
+			//this.edgeList.push(e);
+			//t = u;
+			//e.freeLength = m;
+			//e.draw = f;
+		}
 	},
 	bringToCenter: function(){
 		// 重心を求めて、それを表示オフセットに設定する
@@ -170,7 +182,7 @@ MGCanvas.prototype = {
 			//
 			// Check
 			//
-			
+			/*
 			p = this.nodeList;
 			for(var i = 0, iLen = p.length; i < iLen; i++){
 				nTemp = this.getVectorLength(p[i].vector);
@@ -182,7 +194,7 @@ MGCanvas.prototype = {
 			if(n){
 				n.ignoreEdgeRepulsion = 10;
 			}
-			
+			*/
 			
 			//
 			// Move
@@ -360,6 +372,7 @@ MGCanvas.prototype = {
 		this.context.translate(w, h);
 		this.displayRect = new Rectangle(-w, -h, this.canvas.width, this.canvas.height);
 		this.currentScale = 1;
+		this.zoomOut();
 		this.positionOffset = new Point2D(0, 0);
 	},
 	convertPointToGraphLayerFromCanvasLayerP: function(pCanvas){
@@ -427,11 +440,11 @@ MGCanvas.prototype = {
 function MGNode(env, identifier){
 	this.env = env;
 	this.identifier = identifier;
-	this.position = new Point2D(0, 0);
+	this.position = new Point2D(Math.random() * 32 - 16, Math.random() * 32 - 16);
 	this.size = 10;
 	//ランダムな初期ベクトルをもつ。
 	this.vector = new Point2D(Math.random() * 2 - 1, Math.random() * 2 - 1);
-	this.friction = (100 - 8) / 100;
+	this.friction = 50 / 100;
 	this.repulsionLengthNode = 90;
 	this.repulsionLengthEdge = 90;
 	this.ignoreEdgeRepulsion = 0;
@@ -478,8 +491,10 @@ MGNode.prototype = {
 					}
 				}
 			}
+			
 			//edge
 			//自分を端点に含まないエッジとの距離が近い場合、そのエッジから遠ざかろうとする。
+			/*
 			p = this.env.edgeList;
 			for(var i = 0, iLen = p.length; i < iLen; i++){
 				var q = this.env.edgeList[i];
@@ -501,9 +516,11 @@ MGNode.prototype = {
 					}
 				}
 			}
+			*/
 		} else{
 			this.ignoreEdgeRepulsion--;
 		}
+		
 	},
 }
 
@@ -514,7 +531,7 @@ function MGEdge(env, identifier, node0, node1){
 	this.node1 = node1;
 	this.freeLength = 250;
 	//
-	this.strokeStyle = "rgba(0, 0, 0, 1)";
+	this.strokeStyle = "rgba(0, 0, 0, 0.5)";
 	this.isSelected = false;
 	//
 	this.centerPoint = new Point2D(0, 0);

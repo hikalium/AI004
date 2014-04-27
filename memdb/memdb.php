@@ -21,7 +21,8 @@ define("QUERY_CREATE_TABLE_Node", "
 create table Node (
 	nodeid binary(16) primary key,
 	typeid binary(16) not null,
-	identifier text character set utf8 not null
+	identifier text character set utf8 not null,
+	modtimestamp bigint
 )
 ");
 
@@ -30,30 +31,39 @@ create table Edge (
 	edgeid binary(16) primary key,
 	typeid binary(16) not null,
 	nodeid0 binary(16) not null,
-	nodeid1 binary(16) not null
+	nodeid1 binary(16) not null,
+	modtimestamp bigint
 )
 ");
+
+//
 
 define("QUERY_ADD_Node", "
 insert into Node (
-	nodeid, typeid, identifier
+	nodeid, typeid, identifier, modtimestamp
 ) values (
-	unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), ?
+	unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), ?, ?
 )
 ");
-define("QUERY_ADD_Node_TYPES", "sss");
+define("QUERY_ADD_Node_TYPES", "sssi");
 
 define("QUERY_ADD_Edge", "
 insert into Node (
-	edgeid, typeid, nodeid0, nodeid1
+	edgeid, typeid, nodeid0, nodeid1, modtimestamp
 ) values (
-	unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), unhex(replace(?, '-', ''))
+	unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), ?
 )
 ");
-define("QUERY_ADD_Edge_TYPES", "ssss");
+define("QUERY_ADD_Edge_TYPES", "ssssi");
+
+//
 
 define("QUERY_SELECT_ALL_Node", "select hex(nodeid), hex(typeid), identifier from Node");
+define("QUERY_SELECT_ALL_Node_With_modtimestamp", "select hex(nodeid), hex(typeid), identifier, modtimestamp from Node");
 define("QUERY_SELECT_ALL_Edge", "select hex(edgeid), hex(typeid),  hex(nodeid0), hex(nodeid1) from Edge");
+
+define("QUERY_SELECT_modified_Node", "select hex(nodeid), hex(typeid), identifier from Node WHERE modtimestamp>?");
+define("QUERY_SELECT_modified_Node_TYPES", "i");
 
 //FOR DEBUG
 mysqli_report(MYSQLI_REPORT_ERROR);
@@ -88,9 +98,17 @@ if(isset($_GET['action'])){
 			echo(PHP_EOL);
 		}
 		$stmt->close();
+		// put timestamp tag
+		echoMemoryDBNetworkTimestamp();
 		exit();
-	} else if(strcmp($action, 'viewallnode') == 0){
-		$stmt = $db->prepare(QUERY_SELECT_ALL_Node);
+	} else if(strcmp($action, 'getnodemod') == 0){
+		if(isset($_GET['t'])){
+			$ts = $_GET['t'];
+		} else{
+			$ts = 0;
+		}
+		$stmt = $db->prepare(QUERY_SELECT_modified_Node);
+		$stmt->bind_param(QUERY_SELECT_modified_Node_TYPES, $ts);
 		$stmt->execute();
 		//
 		$stmt->store_result();
@@ -108,19 +126,45 @@ if(isset($_GET['action'])){
 			echo('","');
 			echo($ident);
 			echo('"]');
+			echo(PHP_EOL);
+		}
+		$stmt->close();
+		// put timestamp tag
+		echoMemoryDBNetworkTimestamp();
+		exit();
+	} else if(strcmp($action, 'viewallnode') == 0){
+		$stmt = $db->prepare(QUERY_SELECT_ALL_Node_With_modtimestamp);
+		$stmt->execute();
+		//
+		$stmt->store_result();
+		if($stmt->errno != 0){
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B");
+		}
+		
+		$stmt->bind_result($uuid, $typeid, $ident, $mts);
+		while($stmt->fetch()){
+			$uuid = strtolower($uuid);
+			echo('["');
+			echo(getFormedUUIDString($uuid));
+			echo('","');
+			echo(getFormedUUIDString($typeid));
+			echo('","');
+			echo($ident);
+			echo('"]');
+			echo(' @' . $mts);
 			echo("<br />");
 		}
 		echo($stmt->num_rows);
 		$stmt->close();
-		exit(" OK");
+		exit(" OK " . getTimeStampMs());
 	} else if(strcmp($action, 'addnode') == 0){
-		if(isset($_GET['nodeid'])){
-			$uuid = $_GET['nodeid'];
+		if(isset($_GET['nid'])){
+			$nodeid = $_GET['nid'];
 		} else{
 			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "nodeid needed.");
 		}
-		if(isset($_GET['typeid'])){
-			$typeid = $_GET['typeid'];
+		if(isset($_GET['tid'])){
+			$typeid = $_GET['tid'];
 		} else{
 			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "typeid needed.");
 		}
@@ -132,7 +176,7 @@ if(isset($_GET['action'])){
 
 		$stmt = $db->prepare(QUERY_ADD_Node);
 		$mts = getTimeStampMs();
-		$stmt->bind_param(QUERY_ADD_Node_TYPES, $nodeid, $typeid, $ident);
+		$stmt->bind_param(QUERY_ADD_Node_TYPES, $nodeid, $typeid, $ident, $mts);
 		$stmt->execute();
 		//
 		$stmt->store_result();
@@ -155,6 +199,14 @@ exitWithResponseCode("B539657C-0FA6-49C2-AFB0-13AF5C7866ED");
 function exitWithResponseCode($errid, $description = "")
 {
 	die('["' . $errid .'","' . $description . '"]');
+}
+
+function echoMemoryDBNetworkTimestamp()
+{
+	echo('["a2560a9c-dcf7-4746-ac14-347188518cf2","e3346fd4-ac17-41c3-b3c7-e04972e5c014","');
+	echo(getTimeStampMs());
+	echo('"]');
+	echo(PHP_EOL);
 }
 
 function connectDB()
@@ -198,33 +250,25 @@ function connectDB()
 
 function rebuildDB($db)
 {
-	// すでにあるテーブルの削除
+	//
+	// 削除
+	//
 	
 	// Node
-	$stmt = $db->prepare("drop table if exists Node");
-	$stmt->execute();
-	// エラーチェック省略
-	$stmt->close();
+	$stmt = $db->query("drop table if exists Node");
 	
 	// Edge
-	$stmt = $db->prepare("drop table if exists Edge");
-	$stmt->execute();
-	// エラーチェック省略
-	$stmt->close();
+	$stmt = $db->query("drop table if exists Edge");
 	
+	//
 	// 再構築
+	//
 	
 	// Node
-	$stmt = $db->prepare(QUERY_CREATE_TABLE_Node);
-	$stmt->execute();
-	// エラーチェック省略
-	$stmt->close();
+	$stmt = $db->query(QUERY_CREATE_TABLE_Node);
 	
 	// Edge
-	$stmt = $db->prepare(QUERY_CREATE_TABLE_Edge);
-	$stmt->execute();
-	// エラーチェック省略
-	$stmt->close();
+	$stmt = $db->query(QUERY_CREATE_TABLE_Edge);
 }
 
 function getFormedUUIDString($str)
