@@ -11,7 +11,7 @@ function MemoryDB(syncPHPURL){
 	this.syncPHPURL = syncPHPURL;
 	this.isEnabledNetDB = true;
 	//
-	this.callback_addNode = null;	// function(nodeinstance){};
+	this.callback_refreshedNode = null;	// function(nodeinstance){};
 }
 MemoryDB.prototype = {
 	UUID_Null: "00000000-0000-0000-0000-000000000000",
@@ -46,7 +46,6 @@ MemoryDB.prototype = {
 		rq.setRequestHeader('Pragma', 'no-cache');				// HTTP/1.0 における汎用のヘッダフィールド
 		rq.setRequestHeader('Cache-Control', 'no-cache');		// HTTP/1.1 におけるキャッシュ制御のヘッダフィールド
 		rq.setRequestHeader('If-Modified-Since', 'Thu, 01 Jun 1970 00:00:00 GMT');
-		
 	},
 	sendRequestSync: function(mode, url, data){
 		//同期モード
@@ -74,13 +73,15 @@ MemoryDB.prototype = {
 	},
 	syncDB: function(){
 		// MySQLと同期
-		var r, a, d, t;
+		// 定期的に呼び出されることを想定
+		var r, a, d;
 		if(this.root.length == 0){
 			// 初回同期時は全て取得
 			r = this.sendRequestSync("GET", this.syncPHPURL + "?action=getallnode", null);
 		} else{
 			// 差分のみを取得
-			
+			d = this.getNodeFromUUID(this.UUID_Node_MemoryDBNetworkTimestamp).identifier;
+			r = this.sendRequestSync("GET", this.syncPHPURL + "?action=getnodemod&t=" + d, null);
 		}
 		a = r.split("\n");
 		for(var i = 0, iLen = a.length; i < iLen; i++){
@@ -93,56 +94,24 @@ MemoryDB.prototype = {
 			if(d === undefined){
 				continue;
 			}
-			t = new MemoryDBNodeTag(d[0], d[1], d[2]);
-			if(t){
-				this.root.push(t);
-				this.nodeList.push(t);
-			}
+			this.refreshNodeInternal(d[2], d[1], d[0]);
 		}
 		console.log(this.root);
 	},
-	editNode: function(ident, tid, nid, disableSync){
-		// Nodeを追加し、データベースにも反映し、可能ならばネットワークにも反映させる
+	refreshNode: function(ident, tid, nid){
+		// 該当タグのデータを書き換え、もしくは新規作成する。
+		// 可能であればネットワークに反映する
 		// nid(nodeid)は省略可能で、省略時は新たなUUIDが自動的に付与される
 		// tid(typeid)も省略可能で、省略時はNullUUIDが付与される。
+		// identはnullもしくは空文字でもかまわない。
 		// 戻り値はMemoryDBNodeTagインスタンス
-		// すでに同じnodeidのNodeが存在している場合はundefinedを返しデータベースへの変更は行われない。
-		var t, s, r;
-		if(!ident){
-			return undefined;
-		}
-		if(!tid){
-			tid = this.UUID_Null;
-		}
-		if(!nid){
-			nid = this.createUUID();
-		}
-		// 存在確認
-		t = this.getNodeFromUUID(nid);
-		if(t){
-			return undefined;
-		}
-		t = new MemoryDBNodeTag(nid, tid, ident);
-		
-		if(this.isEnabledNetDB){
-			s = this.syncPHPURL + "?action=addnode";
-			s += "&nid=" + encodeURIComponent(nid);
-			s += "&tid=" + encodeURIComponent(tid);
-			s += "&ident=" + encodeURIComponent(ident);
-			r = this.sendRequestSync("GET", s, null);
-			console.log(r);
-		}
+		// エラー発生時はundefinedを返す。
+		this.refreshNodeInternal(ident, tid, nid, true);
 	},
-	addNode: function(ident, tid, nid){
-		// Nodeを追加し、データベースにも反映し、可能ならばネットワークにも反映させる
-		// nid(nodeid)は省略可能で、省略時は新たなUUIDが自動的に付与される
-		// tid(typeid)も省略可能で、省略時はNullUUIDが付与される。
-		// 戻り値はMemoryDBNodeTagインスタンス
-		// すでに同じnodeidのNodeが存在している場合はundefinedを返しデータベースへの変更は行われない。
+	refreshNodeInternal: function(ident, tid, nid, enableSync){
+		// 基本的にローカルデータのみ変更
+		// enableSync == trueでネットワーク同期する
 		var t, s, r;
-		if(!ident){
-			return undefined;
-		}
 		if(!tid){
 			tid = this.UUID_Null;
 		}
@@ -152,17 +121,24 @@ MemoryDB.prototype = {
 		// 存在確認
 		t = this.getNodeFromUUID(nid);
 		if(t){
+			// 変更
 			return undefined;
+		} else{
+			// 新規作成
+			t = new MemoryDBNodeTag(nid, tid, ident);
+			this.root.push(t);
+			this.nodeList.push(t);
+			if(enableSync && this.isEnabledNetDB){
+				s = this.syncPHPURL + "?action=addnode";
+				s += "&nid=" + encodeURIComponent(nid);
+				s += "&tid=" + encodeURIComponent(tid);
+				s += "&ident=" + encodeURIComponent(ident);
+				r = this.sendRequestSync("GET", s, null);
+				console.log(r);
+			}
 		}
-		t = new MemoryDBNodeTag(nid, tid, ident);
-		
-		if(this.isEnabledNetDB){
-			s = this.syncPHPURL + "?action=addnode";
-			s += "&nid=" + encodeURIComponent(nid);
-			s += "&tid=" + encodeURIComponent(tid);
-			s += "&ident=" + encodeURIComponent(ident);
-			r = this.sendRequestSync("GET", s, null);
-			console.log(r);
+		if(this.callback_refreshedNode){
+			this.callback_refreshedNode(t);
 		}
 	},
 	createUUID: function(){
@@ -182,7 +158,6 @@ function MemoryDBNodeTag(nodeid, typeid, identifier){
 	this.typeid = typeid;
 	this.identifier = identifier;
 	//
-	
 }
 MemoryDBNodeTag.prototype = {
 

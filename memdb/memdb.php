@@ -21,7 +21,7 @@ define("QUERY_CREATE_TABLE_Node", "
 create table Node (
 	nodeid binary(16) primary key,
 	typeid binary(16) not null,
-	identifier text character set utf8 not null,
+	identifier text character set utf8,
 	modtimestamp bigint
 )
 ");

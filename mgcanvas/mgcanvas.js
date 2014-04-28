@@ -12,6 +12,9 @@ function MGCanvas(canvasDOMObj){
 	this.edgeList = new Array();
 	this.selectedNode = null;
 	this.selectedEdge = null;
+	this.srcMemoryDB = null;
+	this.srcMemoryDBSyncPerTick = 60;
+	this.srcMemoryDBSyncCount = this.srcMemoryDBSyncPerTick;
 	
 	var that = this;
 	window.addEventListener('keydown', function(event){
@@ -79,22 +82,13 @@ MGCanvas.prototype = {
 			this.edgeList.push(new MGEdge(this, p[i][2], n(p[i][0]), n(p[i][1])));
 		}
 	},
-	loadGraphFromMemoryDB: function(mdb){
-		var a, l, t, u, m, e, f;
-		a = mdb.nodeList;
-		l = a.length;
-		//m = 12 * l;
-		t = new MGNode(this, "Node");
-		this.nodeList.push(t);
-		f = function(){};
-		for(var i = 0; i < l; i++){
-			u = new MGNode(this, a[i].identifier);
-			this.nodeList.push(u);
-			//e = new MGEdge(this, null, t, u);
-			//this.edgeList.push(e);
-			//t = u;
-			//e.freeLength = m;
-			//e.draw = f;
+	setSourceMemoryDB: function(mdb){
+		var that = this;
+		this.srcMemoryDB = mdb;
+		mdb.callback_refreshedNode = function(t){
+			var n;
+			n = new MGNode(that, t.identifier);
+			that.nodeList.push(n);
 		}
 	},
 	bringToCenter: function(){
@@ -158,11 +152,19 @@ MGCanvas.prototype = {
 		var nTemp;
 		
 		this.tickCount++;
+		this.srcMemoryDBSyncCount++;
+		
+		//
+		// Sync
+		//
+		if(this.srcMemoryDB && this.srcMemoryDBSyncCount > this.srcMemoryDBSyncPerTick){
+			this.srcMemoryDB.syncDB();
+			this.srcMemoryDBSyncCount = 0;
+		}
 		
 		//
 		// AutomaticTracking
 		//
-		
 		if(this.isEnabledAutomaticTracking && (this.tickCount % 30 == 0)){
 			this.bringInScreen();
 		}
