@@ -11,12 +11,13 @@ function MemoryDB(syncPHPURL){
 	this.syncPHPURL = syncPHPURL;
 	this.isEnabledNetDB = true;
 	//
-	this.callback_refreshedNode = null;	// function(nodeinstance){};
+	this.callback_updatedNode = null;	// function(nodeinstance){};
 }
 MemoryDB.prototype = {
 	UUID_Null: "00000000-0000-0000-0000-000000000000",
 	UUID_NodeType_DecimalNumber: "e3346fd4-ac17-41c3-b3c7-e04972e5c014",
 	UUID_Node_MemoryDBNetworkTimestamp: "a2560a9c-dcf7-4746-ac14-347188518cf2",
+	UUID_Node_MemoryDBNetworkResponseCode: "1eeb6d3d-751f-444f-91c8-ed940e65f8bd",
 	createRequestObject: function(){
 		var rq = null;
 		// XMLHttpRequest
@@ -94,11 +95,11 @@ MemoryDB.prototype = {
 			if(d === undefined){
 				continue;
 			}
-			this.refreshNodeInternal(d[2], d[1], d[0]);
+			this.updateNodeInternal(d[2], d[1], d[0]);
 		}
-		console.log(this.root);
+		//console.log(this.root);
 	},
-	refreshNode: function(ident, tid, nid){
+	updateNode: function(ident, tid, nid){
 		// 該当タグのデータを書き換え、もしくは新規作成する。
 		// 可能であればネットワークに反映する
 		// nid(nodeid)は省略可能で、省略時は新たなUUIDが自動的に付与される
@@ -106,9 +107,9 @@ MemoryDB.prototype = {
 		// identはnullもしくは空文字でもかまわない。
 		// 戻り値はMemoryDBNodeTagインスタンス
 		// エラー発生時はundefinedを返す。
-		this.refreshNodeInternal(ident, tid, nid, true);
+		this.updateNodeInternal(ident, tid, nid, true);
 	},
-	refreshNodeInternal: function(ident, tid, nid, enableSync){
+	updateNodeInternal: function(ident, tid, nid, enableSync){
 		// 基本的にローカルデータのみ変更
 		// enableSync == trueでネットワーク同期する
 		var t, s, r;
@@ -122,7 +123,16 @@ MemoryDB.prototype = {
 		t = this.getNodeFromUUID(nid);
 		if(t){
 			// 変更
-			return undefined;
+			t.typeid = tid;
+			t.identifier = ident;
+			if(enableSync && this.isEnabledNetDB){
+				s = this.syncPHPURL + "?action=updatenode";
+				s += "&nid=" + encodeURIComponent(nid);
+				s += "&tid=" + encodeURIComponent(tid);
+				s += "&ident=" + encodeURIComponent(ident);
+				r = this.sendRequestSync("GET", s, null);
+				//console.log(r);
+			}
 		} else{
 			// 新規作成
 			t = new MemoryDBNodeTag(nid, tid, ident);
@@ -134,11 +144,11 @@ MemoryDB.prototype = {
 				s += "&tid=" + encodeURIComponent(tid);
 				s += "&ident=" + encodeURIComponent(ident);
 				r = this.sendRequestSync("GET", s, null);
-				console.log(r);
+				//console.log(r);
 			}
 		}
-		if(this.callback_refreshedNode){
-			this.callback_refreshedNode(t);
+		if(this.callback_updatedNode){
+			this.callback_updatedNode(t);
 		}
 	},
 	createUUID: function(){

@@ -85,10 +85,18 @@ MGCanvas.prototype = {
 	setSourceMemoryDB: function(mdb){
 		var that = this;
 		this.srcMemoryDB = mdb;
-		mdb.callback_refreshedNode = function(t){
+		mdb.callback_updatedNode = function(t){
 			var n;
-			n = new MGNode(that, t.identifier);
-			that.nodeList.push(n);
+			n = that.nodeList.isIncluded(t.nodeid, function(a, b){ return a.nodeid == b; });
+			if(!n){
+				// 新規追加
+				n = new MGNode(that, t.identifier);
+				n.nodeid = t.nodeid;
+				that.nodeList.push(n);
+			} else{
+				// 更新
+				n.identifier = t.identifier;
+			}
 		}
 	},
 	bringToCenter: function(){
@@ -434,14 +442,23 @@ MGCanvas.prototype = {
 	},
 	setIdentifierForSelectedNode: function(str){
 		if(this.selectedNode){
-			this.selectedNode.identifier = str;
+			if(this.srcMemoryDB){
+				this.srcMemoryDB.updateNode(str, this.selectedNode.typeid, this.selectedNode.nodeid);
+			} else{
+				this.selectedNode.identifier = str;
+			}
 		}
 	},
 }
 
 function MGNode(env, identifier){
 	this.env = env;
+	//
 	this.identifier = identifier;
+	//
+	this.nodeid = undefined;
+	this.typeid = undefined;
+	//
 	this.position = new Point2D(Math.random() * 32 - 16, Math.random() * 32 - 16);
 	this.size = 10;
 	//ランダムな初期ベクトルをもつ。

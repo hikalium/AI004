@@ -37,7 +37,6 @@ create table Edge (
 ");
 
 //
-
 define("QUERY_ADD_Node", "
 insert into Node (
 	nodeid, typeid, identifier, modtimestamp
@@ -46,7 +45,7 @@ insert into Node (
 )
 ");
 define("QUERY_ADD_Node_TYPES", "sssi");
-
+//
 define("QUERY_ADD_Edge", "
 insert into Node (
 	edgeid, typeid, nodeid0, nodeid1, modtimestamp
@@ -55,7 +54,14 @@ insert into Node (
 )
 ");
 define("QUERY_ADD_Edge_TYPES", "ssssi");
-
+//
+define("QUERY_UPDATE_Node", "
+UPDATE Node SET
+	typeid=unhex(replace(?, '-', '')), identifier=?, modtimestamp=?
+WHERE
+	nodeid=unhex(replace(?, '-', ''))
+");
+define("QUERY_UPDATE_Node_TYPES", "ssis");
 //
 
 define("QUERY_SELECT_ALL_Node", "select hex(nodeid), hex(typeid), identifier from Node");
@@ -87,14 +93,11 @@ if(isset($_GET['action'])){
 		
 		$stmt->bind_result($uuid, $typeid, $ident);
 		while($stmt->fetch()){
-			$uuid = strtolower($uuid);
-			echo('["');
-			echo(getFormedUUIDString($uuid));
-			echo('","');
-			echo(getFormedUUIDString($typeid));
-			echo('","');
-			echo($ident);
-			echo('"]');
+			echoNode(
+				getFormedUUIDString($uuid),
+				getFormedUUIDString($typeid),
+				$ident
+			);
 			echo(PHP_EOL);
 		}
 		$stmt->close();
@@ -118,14 +121,11 @@ if(isset($_GET['action'])){
 		
 		$stmt->bind_result($uuid, $typeid, $ident);
 		while($stmt->fetch()){
-			$uuid = strtolower($uuid);
-			echo('["');
-			echo(getFormedUUIDString($uuid));
-			echo('","');
-			echo(getFormedUUIDString($typeid));
-			echo('","');
-			echo($ident);
-			echo('"]');
+			echoNode(
+				getFormedUUIDString($uuid),
+				getFormedUUIDString($typeid),
+				$ident
+			);
 			echo(PHP_EOL);
 		}
 		$stmt->close();
@@ -143,14 +143,11 @@ if(isset($_GET['action'])){
 		
 		$stmt->bind_result($uuid, $typeid, $ident, $mts);
 		while($stmt->fetch()){
-			$uuid = strtolower($uuid);
-			echo('["');
-			echo(getFormedUUIDString($uuid));
-			echo('","');
-			echo(getFormedUUIDString($typeid));
-			echo('","');
-			echo($ident);
-			echo('"]');
+			echoNode(
+				getFormedUUIDString($uuid),
+				getFormedUUIDString($typeid),
+				$ident
+			);
 			echo(' @' . $mts);
 			echo("<br />");
 		}
@@ -184,29 +181,59 @@ if(isset($_GET['action'])){
 			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", mysqli_error($db));
 		}
 		$stmt->close();
-		exitWithResponseCode("CEA95615-649C-4837-9E24-0C968FA57647", "OK");
-	} else if(strcmp($action, 'saytest') == 0){
-		/*
-		//for Mac OSX say command.
-		system("say " . escapeshellarg("sayのテストをしています。"));
-		*/
+		exitWithResponseCode("cea95615-649c-4837-9e24-0c968fa57647", "OK");
+	} else if(strcmp($action, 'updatenode') == 0){
+		if(isset($_GET['nid'])){
+			$nodeid = $_GET['nid'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "nodeid needed.");
+		}
+		if(isset($_GET['tid'])){
+			$typeid = $_GET['tid'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "typeid needed.");
+		}
+		if(isset($_GET['ident'])){
+			$ident = $_GET['ident'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "ident needed.");
+		}
+
+		$stmt = $db->prepare(QUERY_UPDATE_Node);
+		$mts = getTimeStampMs();
+		$stmt->bind_param(QUERY_UPDATE_Node_TYPES, $typeid, $ident, $mts, $nodeid);
+		$stmt->execute();
+		//
+		$stmt->store_result();
+		if($stmt->errno != 0){
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", mysqli_error($db));
+		}
+		$stmt->close();
+		exitWithResponseCode("cea95615-649c-4837-9e24-0c968fa57647", "OK");
 	}
 }
 
 //NOP error
-exitWithResponseCode("B539657C-0FA6-49C2-AFB0-13AF5C7866ED");
+exitWithResponseCode("b539657c-0fa6-49c2-afb0-13af5c7866ed");
 
 function exitWithResponseCode($errid, $description = "")
 {
-	die('["' . $errid .'","' . $description . '"]');
+	echoNode("1eeb6d3d-751f-444f-91c8-ed940e65f8bd", $errid, $description);
+	exit();
 }
 
 function echoMemoryDBNetworkTimestamp()
 {
-	echo('["a2560a9c-dcf7-4746-ac14-347188518cf2","e3346fd4-ac17-41c3-b3c7-e04972e5c014","');
-	echo(getTimeStampMs());
-	echo('"]');
-	echo(PHP_EOL);
+	echoNode(
+		"a2560a9c-dcf7-4746-ac14-347188518cf2",
+		"e3346fd4-ac17-41c3-b3c7-e04972e5c014",
+		getTimeStampMs()
+	);
+}
+
+function echoNode($nid, $tid, $ident)
+{
+	echo('["' . $nid .'","' . $tid .'","' . $ident . '"]');
 }
 
 function connectDB()
