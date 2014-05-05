@@ -1,22 +1,31 @@
 
 function MGCanvas(canvasDOMObj){
 	var that = this;
-
+	//
 	this.initGraphicContext(canvasDOMObj);
+	//
 	this.tickPerSecond = 30;
 	this.tickCount = 0;
 	this.tickTimer = window.setInterval(function(){ that.tick(); }, 1000 / this.tickPerSecond);
 	this.isPaused = false;
 	this.isEnabledAutomaticTracking = true;
+	//
 	this.nodeList = new Array();
 	this.edgeList = new Array();
+	//
 	this.selectedNode = null;
+	this.callback_selectedNodeChanged = null;	//function(newNodeInstance){};
+	//
+	this.selectedNodeDestination = null;
+	this.callback_selectedNodeDestinationChanged = null;	//function(newNodeInstance){};
+	//
 	this.selectedEdge = null;
+	this.callback_selectedEdgeChanged = null;	//function(newEdgeInstance){};
+	//
 	this.srcMemoryDB = null;
 	this.srcMemoryDBSyncPerTick = 60;
 	this.srcMemoryDBSyncCount = this.srcMemoryDBSyncPerTick;
-	
-	var that = this;
+
 	window.addEventListener('keydown', function(event){
 		switch(event.keyCode){
 			case 37:	//左カーソル
@@ -56,7 +65,7 @@ function MGCanvas(canvasDOMObj){
 		var p = that.convertPointToGraphLayerFromCanvasLayerP(that.lastMousePosition);
 		//console.log(p.x + "," + p.y);
 		var node = that.getNodeAtPointP(p);
-		that.selectNode(node);
+		that.selectNode(node, e.shiftKey);
 		var edge = that.getEdgeAtPointP(p);
 		that.selectEdge(edge);
 		that.isMouseDown = true;
@@ -92,12 +101,32 @@ MGCanvas.prototype = {
 				// 新規追加
 				n = new MGNode(that, t.identifier);
 				n.nodeid = t.nodeid;
+				n.typeid = t.typeid;
 				that.nodeList.push(n);
 			} else{
 				// 更新
 				n.identifier = t.identifier;
+				n.typeid = t.typeid;
 			}
-		}
+		};
+		mdb.callback_updatedEdge = function(t){
+			var e;
+			var n = function(nid){ return that.nodeList.isIncluded(nid, function(a, b){ return (a.nodeid == b); }); };
+			e = that.edgeList.isIncluded(t.edgeid, function(a, b){ return a.edgeid == b; });
+			if(!e){
+				// 新規追加
+				e = new MGEdge(that, "", n(t.nodeid0), n(t.nodeid1));
+				e.edgeid = t.edgeid;
+				e.typeid = t.typeid;
+				that.edgeList.push(e);
+			} else{
+				// 更新
+				// e.identifier
+				e.node0 = n(t.nodeid0);
+				e.node1 = n(t.nodeid1);
+				e.typeid = t.typeid;
+			}
+		};
 	},
 	bringToCenter: function(){
 		// 重心を求めて、それを表示オフセットに設定する
@@ -382,7 +411,7 @@ MGCanvas.prototype = {
 		this.context.translate(w, h);
 		this.displayRect = new Rectangle(-w, -h, this.canvas.width, this.canvas.height);
 		this.currentScale = 1;
-		this.zoomOut();
+		//this.zoomOut();
 		this.positionOffset = new Point2D(0, 0);
 	},
 	convertPointToGraphLayerFromCanvasLayerP: function(pCanvas){
@@ -422,16 +451,43 @@ MGCanvas.prototype = {
 		}
 		return null;
 	},
-	selectNode: function(node){
-		if(this.selectedNode){
-			this.selectedNode.isSelected = false;
+	selectNode: function(node, destNode){
+		if(!destNode){
+			// 通常のノード選択
+			if(this.selectedNode == node){
+				return;
+			}
+			if(this.selectedNode){
+				this.selectedNode.isSelected = false;
+			}
+			if(node){
+				node.isSelected = true;
+			}
+			this.selectedNode = node;
+			if(this.callback_selectedNodeChanged){
+				this.callback_selectedNodeChanged(this.selectedNode);
+			}
+		} else{
+			// 接続先のノード選択(Shiftキーを押しながら)
+			if(this.selectedNodeDestination == node){
+				return;
+			}
+			if(this.selectedNodeDestination){
+				this.selectedNodeDestination.isSelected = false;
+			}
+			if(node){
+				node.isSelected = true;
+			}
+			this.selectedNodeDestination = node;
+			if(this.callback_selectedNodeDestinationChanged){
+				this.callback_selectedNodeDestinationChanged(this.selectedNodeDestination);
+			}
 		}
-		if(node){
-			node.isSelected = true;
-		}
-		this.selectedNode = node;
 	},
 	selectEdge: function(edge){
+		if(this.selectedEdge == edge){
+			return;
+		}
 		if(this.selectedEdge){
 			this.selectedEdge.isSelected = false;
 		}
@@ -439,13 +495,26 @@ MGCanvas.prototype = {
 			edge.isSelected = true;
 		}
 		this.selectedEdge = edge;
+		if(this.callback_selectedEdgeChanged){
+			this.callback_selectedEdgeChanged(this.selectedEdge);
+		}
 	},
-	setIdentifierForSelectedNode: function(str){
-		if(this.selectedNode){
-			if(this.srcMemoryDB){
-				this.srcMemoryDB.updateNode(str, this.selectedNode.typeid, this.selectedNode.nodeid);
-			} else{
-				this.selectedNode.identifier = str;
+	setIdentifierForSelectedNode: function(str, destNode){
+		if(!destNode){
+			if(this.selectedNode){
+				if(this.srcMemoryDB){
+					this.srcMemoryDB.updateNode(str, this.selectedNode.typeid, this.selectedNode.nodeid);
+				} else{
+					this.selectedNode.identifier = str;
+				}
+			}
+		} else{
+			if(this.selectedNodeDestination){
+				if(this.srcMemoryDB){
+					this.srcMemoryDB.updateNode(str, this.selectedNodeDestination.typeid, this.selectedNodeDestination.nodeid);
+				} else{
+					this.selectedNodeDestination.identifier = str;
+				}
 			}
 		}
 	},
@@ -545,9 +614,14 @@ MGNode.prototype = {
 
 function MGEdge(env, identifier, node0, node1){
 	this.env = env;
+	//
 	this.identifier = identifier;
 	this.node0 = node0;
 	this.node1 = node1;
+	//
+	this.edgeid = null;
+	this.typeid = null;
+	//
 	this.freeLength = 250;
 	//
 	this.strokeStyle = "rgba(0, 0, 0, 0.5)";
@@ -563,8 +637,9 @@ MGEdge.prototype = {
 			this.env.context.strokeStyle = this.strokeStyle;
 		}
 		if(this.node0 && this.node1){
-			this.drawCurvedLineP(this.node0.position, this.node1.position);
-			this.env.strokeRect(this.centerPoint.x - 8, this.centerPoint.y - 8, 16, 16);
+			//this.drawCurvedLineP(this.node0.position, this.node1.position);
+			this.env.drawLineP(this.node0.position, this.node1.position)
+			//this.env.strokeRect(this.centerPoint.x - 8, this.centerPoint.y - 8, 16, 16);
 			if(this.identifier){
 				this.env.drawText(this.identifier.toString(), this.centerPoint.x, this.centerPoint.y);
 			}

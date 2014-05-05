@@ -47,7 +47,7 @@ insert into Node (
 define("QUERY_ADD_Node_TYPES", "sssi");
 //
 define("QUERY_ADD_Edge", "
-insert into Node (
+insert into Edge (
 	edgeid, typeid, nodeid0, nodeid1, modtimestamp
 ) values (
 	unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), unhex(replace(?, '-', '')), ?
@@ -63,10 +63,18 @@ WHERE
 ");
 define("QUERY_UPDATE_Node_TYPES", "ssis");
 //
-
+define("QUERY_UPDATE_Edge", "
+UPDATE Edge SET
+	typeid=unhex(replace(?, '-', '')), nodeid0=unhex(replace(?, '-', '')), nodeid1=unhex(replace(?, '-', '')), modtimestamp=?
+WHERE
+	edgeid=unhex(replace(?, '-', ''))
+");
+define("QUERY_UPDATE_Edge_TYPES", "sssis");
+//
 define("QUERY_SELECT_ALL_Node", "select hex(nodeid), hex(typeid), identifier from Node");
 define("QUERY_SELECT_ALL_Node_With_modtimestamp", "select hex(nodeid), hex(typeid), identifier, modtimestamp from Node");
 define("QUERY_SELECT_ALL_Edge", "select hex(edgeid), hex(typeid),  hex(nodeid0), hex(nodeid1) from Edge");
+define("QUERY_SELECT_ALL_Edge_With_modtimestamp", "select hex(edgeid), hex(typeid),  hex(nodeid0), hex(nodeid1), modtimestamp from Edge");
 
 define("QUERY_SELECT_modified_Node", "select hex(nodeid), hex(typeid), identifier from Node WHERE modtimestamp>?");
 define("QUERY_SELECT_modified_Node_TYPES", "i");
@@ -104,7 +112,30 @@ if(isset($_GET['action'])){
 		// put timestamp tag
 		echoMemoryDBNetworkTimestamp();
 		exit();
-	} else if(strcmp($action, 'getnodemod') == 0){
+	} else if(strcmp($action, 'getalledge') == 0){
+		$stmt = $db->prepare(QUERY_SELECT_ALL_Edge);
+		$stmt->execute();
+		//
+		$stmt->store_result();
+		if($stmt->errno != 0){
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B");
+		}
+		
+		$stmt->bind_result($uuid, $typeid, $nid0, $nid1);
+		while($stmt->fetch()){
+			echoEdge(
+				getFormedUUIDString($uuid),
+				getFormedUUIDString($typeid),
+				getFormedUUIDString($nid0),
+				getFormedUUIDString($nid1)
+			);
+			echo(PHP_EOL);
+		}
+		$stmt->close();
+		// put timestamp tag
+		echoMemoryDBNetworkTimestamp();
+		exit();
+	} else if(strcmp($action, 'getallnodemod') == 0){
 		if(isset($_GET['t'])){
 			$ts = $_GET['t'];
 		} else{
@@ -147,6 +178,29 @@ if(isset($_GET['action'])){
 				getFormedUUIDString($uuid),
 				getFormedUUIDString($typeid),
 				$ident
+			);
+			echo(' @' . $mts);
+			echo("<br />");
+		}
+		echo($stmt->num_rows);
+		$stmt->close();
+		exit(" OK " . getTimeStampMs());
+	} else if(strcmp($action, 'viewalledge') == 0){
+		$stmt = $db->prepare(QUERY_SELECT_ALL_Edge_With_modtimestamp);
+		$stmt->execute();
+		//
+		$stmt->store_result();
+		if($stmt->errno != 0){
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B");
+		}
+		
+		$stmt->bind_result($uuid, $typeid, $nid0, $nid1, $mts);
+		while($stmt->fetch()){
+			echoEdge(
+				getFormedUUIDString($uuid),
+				getFormedUUIDString($typeid),
+				getFormedUUIDString($nid0),
+				getFormedUUIDString($nid1)
 			);
 			echo(' @' . $mts);
 			echo("<br />");
@@ -210,6 +264,72 @@ if(isset($_GET['action'])){
 		}
 		$stmt->close();
 		exitWithResponseCode("cea95615-649c-4837-9e24-0c968fa57647", "OK");
+	} else if(strcmp($action, 'addedge') == 0){
+		if(isset($_GET['eid'])){
+			$edgeid = $_GET['eid'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "edgeid needed.");
+		}
+		if(isset($_GET['tid'])){
+			$typeid = $_GET['tid'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "typeid needed.");
+		}
+		if(isset($_GET['nid0'])){
+			$nid0 = $_GET['nid0'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "nodeid0 needed.");
+		}
+		if(isset($_GET['nid1'])){
+			$nid1 = $_GET['nid1'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "nodeid1 needed.");
+		}
+
+		$stmt = $db->prepare(QUERY_ADD_Edge);
+		$mts = getTimeStampMs();
+		$stmt->bind_param(QUERY_ADD_Edge_TYPES, $edgeid, $typeid, $nid0, $nid1, $mts);
+		$stmt->execute();
+		//
+		$stmt->store_result();
+		if($stmt->errno != 0){
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", mysqli_error($db));
+		}
+		$stmt->close();
+		exitWithResponseCode("cea95615-649c-4837-9e24-0c968fa57647", "OK");
+	} else if(strcmp($action, 'updateedge') == 0){
+		if(isset($_GET['eid'])){
+			$edgeid = $_GET['eid'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "edgeid needed.");
+		}
+		if(isset($_GET['tid'])){
+			$typeid = $_GET['tid'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "typeid needed.");
+		}
+		if(isset($_GET['nid0'])){
+			$nid0 = $_GET['nid0'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "nodeid0 needed.");
+		}
+		if(isset($_GET['nid1'])){
+			$nid1 = $_GET['nid1'];
+		} else{
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", "nodeid1 needed.");
+		}
+
+		$stmt = $db->prepare(QUERY_UPDATE_Edge);
+		$mts = getTimeStampMs();
+		$stmt->bind_param(QUERY_UPDATE_Edge_TYPES, $typeid, $nid0, $nid1, $mts, $edgeid);
+		$stmt->execute();
+		//
+		$stmt->store_result();
+		if($stmt->errno != 0){
+			exitWithResponseCode("A0518702-C90C-4785-B5EA-1A213DD0205B", mysqli_error($db));
+		}
+		$stmt->close();
+		exitWithResponseCode("cea95615-649c-4837-9e24-0c968fa57647", "OK");
 	}
 }
 
@@ -234,6 +354,11 @@ function echoMemoryDBNetworkTimestamp()
 function echoNode($nid, $tid, $ident)
 {
 	echo('["' . $nid .'","' . $tid .'","' . $ident . '"]');
+}
+
+function echoEdge($eid, $tid, $nid0, $nid1)
+{
+	echo('["' . $eid .'","' . $tid .'","' . $nid0 .'","' . $nid1 . '"]');
 }
 
 function connectDB()

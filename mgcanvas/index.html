@@ -21,8 +21,52 @@ var mgmain;
 var memdb;
 
 onload = function() {
+	var that = this;
+	var DOM_Node0ID = document.getElementById("nidBox0");
+	var DOM_Node0Ident = document.getElementById("identBox0");
+	var DOM_Node1ID = document.getElementById("nidBox1");
+	var DOM_Node1Ident = document.getElementById("identBox1");
+	var DOM_EdgeID = document.getElementById("eidBox");
+	var DOM_EdgeTypeID = document.getElementById("etidBox");
+
 	memdb = new MemoryDB("./../memdb/memdb.php");
 	mgmain = new MGCanvas(document.getElementById("mainCanvas"));
+	document.getElementById("updateButton0").onclick = function(){
+		mgmain.setIdentifierForSelectedNode(DOM_Node0Ident.value);
+	};
+	document.getElementById("updateButton1").onclick = function(){
+		mgmain.setIdentifierForSelectedNode(DOM_Node1Ident.value, true);
+	};
+	document.getElementById("connectNodesButton").onclick = function(){
+		memdb.updateEdge(DOM_Node0ID.value, DOM_Node1ID.value);
+	};
+	mgmain.callback_selectedNodeChanged = function(newNode){
+		if(newNode){
+			DOM_Node0ID.value = newNode.nodeid;
+			DOM_Node0Ident.value = newNode.identifier;
+		} else{
+			DOM_Node0ID.value = "not selected";
+			DOM_Node0Ident.value = "";
+		}
+	};
+	mgmain.callback_selectedNodeDestinationChanged = function(newNode){
+		if(newNode){
+			DOM_Node1ID.value = newNode.nodeid;
+			DOM_Node1Ident.value = newNode.identifier;
+		} else{
+			DOM_Node1ID.value = "not selected";
+			DOM_Node1Ident.value = "";
+		}
+	};
+	mgmain.callback_selectedEdgeChanged = function(newEdge){
+		if(newEdge){
+			DOM_EdgeID.value = newEdge.edgeid;
+			DOM_EdgeTypeID.value = newEdge.typeid;
+		} else{
+			DOM_EdgeID.value = "not selected";
+			DOM_EdgeTypeID.value = "";
+		}
+	};
 	mgmain.setSourceMemoryDB(memdb);
 }
 </script>
@@ -30,7 +74,7 @@ onload = function() {
 <body>
 <h1>Mind Graph Canvas</h1>
 <canvas id="mainCanvas" width="1024" height="768" style="border:1px solid #000000;"></canvas>
-<br />
+<h3>Control</h3>
 <button onclick="mgmain.bringToCenter();">Center</button>
 <button onclick="mgmain.isPaused = !mgmain.isPaused;">Freeze</button>
 <button onclick="mgmain.zoomIn();">+</button>
@@ -39,11 +83,17 @@ onload = function() {
 <button onclick="mgmain.moveViewRelative(0, 10);">↓</button>
 <button onclick="mgmain.moveViewRelative(-10, 0);">←</button>
 <button onclick="mgmain.moveViewRelative(10, 0);">→</button>
-<br />
-identifier:<input id="identBox" type="text"></input>
-<br />
-<button onclick="mgmain.setIdentifierForSelectedNode(getElementById('identBox').value);">setNodeIdent</button>
-<button onclick="memdb.updateNode(getElementById('identBox').value);">addNode</button>
+<h3>Node0</h3>
+id:<input disabled id="nidBox0" type="text" size="50"></input>
+identifier:<input id="identBox0" type="text" size="25"></input>
+<button id="updateButton0">updateNode</button>
+<h3>Node1</h3>
+id:<input disabled id="nidBox1" type="text" size="50"></input>
+identifier:<input id="identBox1" type="text" size="25"></input>
+<button id="updateButton1">updateNode</button>
+<h3>Edge</h3>
+id :<input disabled id="eidBox" type="text" size="50"></input>
+type :<input disabled id="etidBox" type="text" size="50"></input><button id="connectNodesButton">connectNodes</button>
 
 </body>
 </html>

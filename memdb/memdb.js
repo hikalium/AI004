@@ -7,11 +7,13 @@ function MemoryDB(syncPHPURL){
 	this.root = new Array();
 	//
 	this.nodeList = new Array();
+	this.edgeList = new Array();
 	//
 	this.syncPHPURL = syncPHPURL;
 	this.isEnabledNetDB = true;
 	//
-	this.callback_updatedNode = null;	// function(nodeinstance){};
+	this.callback_updatedNode = null;	// function(nodeInstance){};
+	this.callback_updatedEdge = null;	// function(edgeInstance){};
 }
 MemoryDB.prototype = {
 	UUID_Null: "00000000-0000-0000-0000-000000000000",
@@ -25,20 +27,29 @@ MemoryDB.prototype = {
 			// XMLHttpRequest オブジェクトを作成
 			rq = new XMLHttpRequest();
 		}catch(e){}
+		if(rq){
+			return rq;
+		}
 		// Internet Explorer
 		try{
 			rq = new ActiveXObject('MSXML2.XMLHTTP.6.0');
 		}catch(e){}
+		if(rq){
+			return rq;
+		}
 		try{
 			rq = new ActiveXObject('MSXML2.XMLHTTP.3.0');
 		}catch(e){}
+		if(rq){
+			return rq;
+		}
 		try{
 			rq = new ActiveXObject('MSXML2.XMLHTTP');
 		}catch(e){}
-		if(rq == null){
-			return null;
+		if(rq){
+			return rq;
 		}
-		return rq;
+		return null;
 	},
 	requestObjectDisableCache: function(rq){
 		//call after open request.
@@ -75,14 +86,18 @@ MemoryDB.prototype = {
 	syncDB: function(){
 		// MySQLと同期
 		// 定期的に呼び出されることを想定
+		this.syncDBNode();
+		this.syncDBEdge();
+	},
+	syncDBNode: function(){
 		var r, a, d;
-		if(this.root.length == 0){
+		if(this.nodeList.length == 0){
 			// 初回同期時は全て取得
 			r = this.sendRequestSync("GET", this.syncPHPURL + "?action=getallnode", null);
 		} else{
 			// 差分のみを取得
 			d = this.getNodeFromUUID(this.UUID_Node_MemoryDBNetworkTimestamp).identifier;
-			r = this.sendRequestSync("GET", this.syncPHPURL + "?action=getnodemod&t=" + d, null);
+			r = this.sendRequestSync("GET", this.syncPHPURL + "?action=getallnodemod&t=" + d, null);
 		}
 		a = r.split("\n");
 		for(var i = 0, iLen = a.length; i < iLen; i++){
@@ -97,7 +112,40 @@ MemoryDB.prototype = {
 			}
 			this.updateNodeInternal(d[2], d[1], d[0]);
 		}
-		//console.log(this.root);
+	},
+	syncDBEdge: function(){
+		var r, a, d;
+		if(this.edgeList.length == 0){
+			// 初回同期時は全て取得
+			r = this.sendRequestSync("GET", this.syncPHPURL + "?action=getalledge", null);
+		} else{
+			// 差分のみを取得
+			/*
+			d = this.getNodeFromUUID(this.UUID_Node_MemoryDBNetworkTimestamp).identifier;
+			r = this.sendRequestSync("GET", this.syncPHPURL + "?action=getallnodemod&t=" + d, null);
+			*/
+			return;
+		}
+		a = r.split("\n");
+		for(var i = 0, iLen = a.length; i < iLen; i++){
+			try{
+				d = eval(a[i]);
+			} catch(e){
+				console.log(i + ": " + e + "\n");
+				continue;
+			}
+			if(d === undefined){
+				continue;
+			}
+			if(	d[0] != this.UUID_Node_MemoryDBNetworkTimestamp &&
+				d[0] != this.UUID_Node_MemoryDBNetworkResponseCode){
+				// edge data
+				this.updateEdgeInternal(d[2], d[3], d[1], d[0]);
+			} else{
+				// node data
+				this.updateNodeInternal(d[2], d[1], d[0]);
+			}
+		}
 	},
 	updateNode: function(ident, tid, nid){
 		// 該当タグのデータを書き換え、もしくは新規作成する。
@@ -151,6 +199,61 @@ MemoryDB.prototype = {
 			this.callback_updatedNode(t);
 		}
 	},
+	updateEdge: function(nid0, nid1, tid, eid){
+		// 該当タグのデータを書き換え、もしくは新規作成する。
+		// 可能であればネットワークに反映する
+		// eid(nodeid)は省略可能で、省略時は新たなUUIDが自動的に付与される
+		// tid(typeid)も省略可能で、省略時はNullUUIDが付与される
+		// 戻り値はMemoryDBEdgeTagインスタンス
+		// エラー発生時はundefinedを返す。
+		this.updateEdgeInternal(nid0, nid1, tid, eid, true);
+	},
+	updateEdgeInternal: function(nid0, nid1, tid, eid, enableSync){
+		// 基本的にローカルデータのみ変更
+		// enableSync == trueでネットワーク同期する
+		var t, s, r;
+		if(!tid){
+			tid = this.UUID_Null;
+		}
+		if(!eid){
+			eid = this.createUUID();
+		}
+		// 存在確認
+		t = this.getEdgeFromUUID(eid);
+		if(t){
+			// 変更
+			/*
+			t.typeid = tid;
+			t.identifier = ident;
+			if(enableSync && this.isEnabledNetDB){
+				s = this.syncPHPURL + "?action=updatenode";
+				s += "&nid=" + encodeURIComponent(nid);
+				s += "&tid=" + encodeURIComponent(tid);
+				s += "&ident=" + encodeURIComponent(ident);
+				r = this.sendRequestSync("GET", s, null);
+				//console.log(r);
+			}
+			*/
+			return;
+		} else{
+			// 新規作成
+			t = new MemoryDBEdgeTag(eid, tid, nid0, nid1);
+			this.root.push(t);
+			this.edgeList.push(t);
+			if(enableSync && this.isEnabledNetDB){
+				s = this.syncPHPURL + "?action=addedge";
+				s += "&eid=" + encodeURIComponent(eid);
+				s += "&tid=" + encodeURIComponent(tid);
+				s += "&nid0=" + encodeURIComponent(nid0);
+				s += "&nid1=" + encodeURIComponent(nid1);
+				r = this.sendRequestSync("GET", s, null);
+				console.log(r);
+			}
+		}
+		if(this.callback_updatedEdge){
+			this.callback_updatedEdge(t);
+		}
+	},
 	createUUID: function(){
 		var f = this.createUUIDSub;
 		return (f() + f() + "-" + f() + "-" + f() + "-" + f() + "-" + f() + f() + f());
@@ -160,6 +263,9 @@ MemoryDB.prototype = {
 	},
 	getNodeFromUUID: function(nodeid){
 		return this.nodeList.isIncluded(nodeid, function(a, b){ return a.nodeid == b; });
+	},
+	getEdgeFromUUID: function(edgeid){
+		return this.edgeList.isIncluded(edgeid, function(a, b){ return a.edgeid == b; });
 	},
 }
 
@@ -173,8 +279,11 @@ MemoryDBNodeTag.prototype = {
 
 }
 
-function MemoryDBEdgeTag(typeUUIDStr){
-	this.uuid = null;
+function MemoryDBEdgeTag(edgeid, typeid, nodeid0, nodeid1){
+	this.edgeid = edgeid;
+	this.typeid = typeid;
+	this.nodeid0 = nodeid0;
+	this.nodeid1 = nodeid1;
 }
 MemoryDBEdgeTag.prototype = {
 
